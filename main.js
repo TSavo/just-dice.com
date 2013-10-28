@@ -2,19 +2,15 @@ var timer;
 var bal;
 var bet;
 var current_steps = 1;
-var start_bet = 0;
+var start_bet = 0.000015;
 var $multiplier;
 var $steps;
 var $run;
 var running = true; //Start of graph toggle function
 var graphRunning = false;
 var arr_ignore = new Array();
-var timer_num = function(winning){
-	var x = 0;
-	if(winning){
-		x = Math.random()*3000;
-	}
-	return parseInt(1500 +Math.random() * 1000 + x);
+var timer_num = function(){	
+	return parseInt(1500);
 };
 var current_bet_num = 0;
 
@@ -26,28 +22,25 @@ $('.button_inner_group:nth(2)').append(
 
 var usdCache = 0;
 var usdCacheAge = 0;
-function updateUSD(){
-	if($(".chatstat table tbody").children().size() == 3){
-		$(".chatstat table tbody").append(
-		'<tr><th>usd</th><td><span class="investmentUSD"></span></td><td><span class="invest_pftUSD"></span></td><td></td><td></td><td><span class="wageredUSD"></span></td><td><span class="myprofitUSD"></span></td></tr>'		
-		);
-		$(".balance").append('<br><input id="pct_balanceUSD" class="readonly" tabindex="-1">');
-	}
+function cacheUSD(){
 	if(usdCacheAge < new Date().getTime() - 60000){
 		$.ajax("https://api.bitcoinaverage.com/all", {success:function(data){
 			usdCache = parseFloat(data.USD.averages["24h_avg"]);
 		}});
 		usdCacheAge = new Date().getTime();
-	}else{
+	}
+}
+function updateUSD(){
 		$(".investmentUSD").html("$"+(parseFloat($(".investment").html()) * usdCache).toFixed(2));
 		$(".invest_pftUSD").html("$"+(parseFloat($(".invest_pft").html()) * usdCache).toFixed(2));
 		$(".myprofitUSD").html("$"+(parseFloat($(".myprofit").html()) * usdCache).toFixed(2));
 		$(".wageredUSD").html("$"+(parseFloat($(".wagered").html()) * usdCache).toFixed(2));
 		$("#pct_balanceUSD").val("$"+($("#pct_balance").val() * usdCache).toFixed(2));
-		
-	}
-	
 }
+
+var losses = 0;
+var lastWin = new Date().getTime();
+var profitPerMS = 0;
 
 function martingale()
 {
@@ -71,7 +64,18 @@ function martingale()
 	{
 	    //winning = true;
 	    //console.debug("winning");
-        current_steps = 1;
+        var profit = curr_bal - bal.data('oldVal');
+        var now = new Date().getTime();
+        var diff = now - lastWin;
+        if(lastWin == 0){
+        	profitPerMS = profit / diff; 
+        }else{
+        	profitPerMS += profit / diff;
+        	profitPerMS /= 2;
+        }
+        lastWin = now;
+        $(".profitPerS").html((profitPerMS * 1000).toFixed(8));
+        $(".profitPerSUSD").html(((profitPerMS * 60000)).toFixed(8));
         $("#pct_bet").val(parseFloat(start_bet));
 
             //Increase our bet by the multiplier
@@ -87,9 +91,9 @@ function martingale()
 
 
             $("#pct_bet").val(new_val);
-
+            current_steps = 1;
+            
             //Increase the steps
-            current_steps++;
             $("#a_hi").trigger('click');
 	}
 
@@ -215,20 +219,20 @@ function create_ui() {
 
   $run.click(function() {
 	running = true;
-  start_bet =  $("#pct_bet").val();
-  $("#a_hi").trigger('click');
+	start_bet =  $("#pct_bet").val();
+	$("#a_hi").trigger('click');
   });
   $run_div.append($run);
 
   $Stop = $('<button id="c_stop" style="margin-top:5px;">Stop<div class="key">Q</div></button>');
   $Stop.click(function() {
-  running = false;
+	  running = false;
   });
   $run_div.append($Stop);
 
   var $row1 = $('<div class="row"/>');
   var $label1 = $('<p class="llabel">Multiplier</p>');
-  $multiplier = $('<input id="multiplier" />');
+  $multiplier = $('<input id="multiplier" value="2.1"/>');
   $multiplier.keyup(function() {set_run();});
   var $x = $('<p class="rlabel">x</p>');
   $row1.append($label1);
@@ -237,7 +241,7 @@ function create_ui() {
 
   var $row2 = $('<div class="row"/>');
   var $label2 = $('<p class="llabel">Max losses</p>');
-  $steps = $('<input id="steps"/>');
+  $steps = $('<input id="steps" value="16"/>');
   $steps.keyup(function() {set_run();});
   var $numz = $('<p class="rlabel">#</p>');
   $row2.append($label2);
@@ -245,15 +249,18 @@ function create_ui() {
   $row2.append($numz);
 
   var $row3 = $('<div class="row"/>');
-  var $label3 = $('<p class="llabel">Graph Update</p>');
-  $delay = $('<input id="updateInterval"/>');
+  var $label3 = $('<p class="llabel">Total risk</p>');
+  $delay = $('<input id="totalRisk" class="readonly"/>');
+  $numz = $('<p class="rlabel">BTC</p>');
   $row3.append($label3);
   $row3.append($delay);
+  $row3.append($numz);
 
 
   var $fieldset = $('<fieldset/>');
   $fieldset.append($row1);
   $fieldset.append($row2);
+  $fieldset.append($row3);
 
   $button_group.append($martingale_button);
   $button_group.append($fieldset);
@@ -261,7 +268,11 @@ function create_ui() {
 
   $(".container").eq('1').append($container);
   $(".container").eq('1').append('<div style="clear:left;"/>');
-
+  $(".chatstat table tbody").append(
+	'<tr><th>usd</th><td><span class="investmentUSD"></span></td><td><span class="invest_pftUSD"></span></td><td></td><td><span class="profitPerSUSD"></span></td><td><span class="wageredUSD"></span></td><td><span class="myprofitUSD"></span></td></tr>'		
+  );
+  $(".balance").append('<br><input id="pct_balanceUSD" class="readonly" tabindex="-1">');
+	
 }
 
 function set_run() {
@@ -283,6 +294,7 @@ function set_run() {
              total+= $('#pct_bet').val() * mult;
              mult *= $multiplier.val();
            }
+           $("#totalRisk").val(total.toFixed(8));
            console.log('total:' + total);
 
            if (total != 0 && total < $('#pct_balance').val()) {
@@ -318,7 +330,9 @@ $(document).ready( function() {
   ping_user();
 
   //drawchart();
-  updateUSD();
+  cacheUSD();
+  setInterval(cacheUSD, 60000);
+  setTimeout(updateUSD,5000);
 
 
   //set the balance
