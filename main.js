@@ -10,7 +10,7 @@ var running = false; //Start of graph toggle function
 var graphRunning = false;
 var arr_ignore = new Array();
 var timer_num = function(){	
-	return parseInt(1500);
+	return parseInt(1000);
 };
 var current_bet_num = 0;
 
@@ -25,17 +25,17 @@ var usdCacheAge = 0;
 function cacheUSD(){
 	if(usdCacheAge < new Date().getTime() - 60000){
 		$.ajax("https://api.bitcoinaverage.com/all", {success:function(data){
-			usdCache = parseFloat(data.USD.averages["24h_avg"]);
+			usdCache = data;
 		}});
 		usdCacheAge = new Date().getTime();
 	}
 }
 function updateUSD(){
-		$(".investmentUSD").html("$"+(parseFloat($(".investment").html()) * usdCache).toFixed(2));
-		$(".invest_pftUSD").html("$"+(parseFloat($(".invest_pft").html()) * usdCache).toFixed(2));
-		$(".myprofitUSD").html("$"+(parseFloat($(".myprofit").html()) * usdCache).toFixed(2));
-		$(".wageredUSD").html("$"+(parseFloat($(".wagered").html()) * usdCache).toFixed(2));
-		$("#pct_balanceUSD").val("$"+($("#pct_balance").val() * usdCache).toFixed(2));
+		$(".investmentUSD").html((parseFloat($(".investment").html()) * usdCache[$("#currencySelector").val()]["averages"]["24h_avg"]).toFixed(2) + " " + $("#currencySelector").val());
+		$(".invest_pftUSD").html((parseFloat($(".invest_pft").html()) * usdCache[$("#currencySelector").val()]["averages"]["24h_avg"]).toFixed(2) + " " + $("#currencySelector").val());
+		$(".myprofitUSD").html((parseFloat($(".myprofit").html()) * usdCache[$("#currencySelector").val()]["averages"]["24h_avg"]).toFixed(2) + " " + $("#currencySelector").val());
+		$(".wageredUSD").html((parseFloat($(".wagered").html()) * usdCache[$("#currencySelector").val()]["averages"]["24h_avg"]).toFixed(2) + " " + $("#currencySelector").val());
+		$("#pct_balanceUSD").val(($("#pct_balance").val() * usdCache[$("#currencySelector").val()]["averages"]["24h_avg"]).toFixed(2) + " " + $("#currencySelector").val());
 }
 
 var losses = 0;
@@ -268,9 +268,23 @@ function create_ui() {
 
   $(".container").eq('1').append($container);
   $(".container").eq('1').append('<div style="clear:left;"/>');
-  $(".chatstat table tbody").append(
-	'<tr><th>usd</th><td><span class="investmentUSD"></span></td><td><span class="invest_pftUSD"></span></td><td></td><td><span class="profitPerSUSD"></span></td><td><span class="wageredUSD"></span></td><td><span class="myprofitUSD"></span></td></tr>'		
-  );
+  $.ajax("https://api.bitcoinaverage.com/all", {success:function(data){
+		//usdCache = parseFloat(data.USD.averages["24h_avg"]);
+	currencyOptions = "";
+	for(i in data){
+		if(i=="USD"){
+			currencyOptions += "<option value=\"" + i + "\" SELECTED>" + i + "</option>";
+			
+		}else if(i.length == 3){
+			currencyOptions += "<option value=\"" + i + "\">" + i + "</option>";
+		}
+	}
+	$(".chatstat table tbody").append(
+			'<tr><th><select id="currencySelector">' + currencyOptions + '</select></th><td><span class="investmentUSD"></span></td><td><span class="invest_pftUSD"></span></td><td></td><td><span class="profitPerSUSD"></span></td><td><span class="wageredUSD"></span></td><td><span class="myprofitUSD"></span></td></tr>'		
+	);
+	setTimeout(updateUSD,5000);
+  }});
+  
   $(".balance").append('<br><input id="pct_balanceUSD" class="readonly" tabindex="-1">');
 	
 }
@@ -324,16 +338,15 @@ $(document).ready( function() {
   //tabber();
 
   console.log('starting');
-
+  cacheUSD();
+  
   create_ui();
 
   ping_user();
 
   //drawchart();
-  cacheUSD();
   setInterval(cacheUSD, 60000);
-  setTimeout(updateUSD,5000);
-
+  
 
   //set the balance
   //when the balance changes and we're martingaling
