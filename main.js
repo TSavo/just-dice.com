@@ -6,7 +6,7 @@ var start_bet = 0.000015;
 var $multiplier;
 var $steps;
 var $run;
-var running = true; //Start of graph toggle function
+var running = false; //Start of graph toggle function
 var graphRunning = false;
 var arr_ignore = new Array();
 var timer_num = function(){	
