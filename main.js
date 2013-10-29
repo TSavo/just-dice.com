@@ -6,7 +6,7 @@ var start_bet = 0.000015;
 var $multiplier;
 var $steps;
 var $run;
-var running = true; //Start of graph toggle function
+var running = false; //Start of graph toggle function
 var graphRunning = false;
 var arr_ignore = new Array();
 var timer_num = function(){	
@@ -345,7 +345,7 @@ function set_run() {
       }
 }
 
-
+var oldBal = 0;
 
 function chart(){
 	        Highcharts.setOptions({
@@ -368,13 +368,16 @@ function chart(){
 	                        setInterval(function() {
 	                            var x = (new Date()).getTime(), // current time
 	                                y = parseFloat($("#pct_balance").val());
-	                            series.addPoint([x, y], true, true);
+	                            if(y != oldBal){
+		                            series.addPoint([x, y], true, true);
+	                            }
+	                            oldBal = y;
 	                        }, 1000);
 	                    }
 	                }
 	            },
 	            title: {
-	                text: 'Live random data'
+	                text: 'Balance'
 	            },
 	            xAxis: {
 	                type: 'datetime',
@@ -404,7 +407,7 @@ function chart(){
 	                enabled: false
 	            },
 	            series: [{
-	                name: 'Random data',
+	                name: 'Balance',
 	                data: (function() {
 	                    // generate an array of random data
 	                    var data = [],
@@ -413,8 +416,8 @@ function chart(){
 	    
 	                    for (i = -109; i <= 0; i++) {
 	                        data.push({
-	                            x: time + i * 1000,
-	                            y: Math.random() + 2
+	                            x: time,
+	                            y: 2.56873823
 	                        });
 	                    }
 	                    return data;
