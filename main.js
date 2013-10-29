@@ -236,7 +236,7 @@ function create_ui() {
 
   var $row1 = $('<div class="row"/>');
   var $label1 = $('<p class="llabel">Multiplier</p>');
-  $multiplier = $('<input id="multiplier" value="2.1"/>');
+  $multiplier = $('<input id="multiplier" value="2.02"/>');
   $multiplier.keyup(function() {set_run();});
   var $x = $('<p class="rlabel">x</p>');
   $row1.append($label1);
@@ -412,7 +412,17 @@ function chart(){
 	            },
 	            series: [{
 	                name: 'Balance',
-	                data: []
+	                data: (function() {
+	                    // generate an array of random data
+	                    var data = [],
+	                        time = (new Date()).getTime(),
+	                        i;
+	                    	for(var x = 0; x< 1; x++){
+	                    		data.push([time, 0]);
+	                    	}
+	               
+	                    return data;
+	                })()
 	            }]
 	        });
 
