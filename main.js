@@ -140,7 +140,7 @@ function martingale()
 
 // Added Extra tab from Grays Bot. This is currently just a placeholder.
 function tabber() {
-        var markup = '<div class="bot-stats"><div class="statspanel"><h2>Stats</h2><div class="clear"></div><div class="slabel">Bets placed:</div><span id="gbs_bet">0</span><div class="clear"><div class="clear"></div></div></div><div class="clear"></div><div class="bot-graph">Some more stuff incoming!!!</div><div class="bot-foot">';
+        var markup = '<div class="bot-stats"><div class="statspanel"><h2>Stats</h2><div class="clear"></div><div class="slabel">Bets placed:</div><span id="gbs_bet">0</span><div class="clear"><div class="clear"></div></div></div><div class="clear"></div><div id="container" style="height: 400px; margin: 0 auto"></div><div class="bot-foot">';
                 $panelWrapper = $('<div>').attr('id','Nixsy9').css({display: 'none'}).insertAfter('#faq'),
                 $panel = $('<div>').addClass('panel').append(markup).appendTo($panelWrapper),
 
@@ -255,12 +255,23 @@ function create_ui() {
   $row3.append($label3);
   $row3.append($delay);
   $row3.append($numz);
-
+  
+  
+  var $row4 = $('<div class="row"/>');
+  var $label4 = $('<p class="llabel">Bets Until Bust</p>');
+  $delay = $('<input id="bub" class="readonly"/>');
+  $numz = $('<p class="rlabel">#</p>');
+  $row4.append($label4);
+  $row4.append($delay);
+  $row4.append($numz);
+  
+  
 
   var $fieldset = $('<fieldset/>');
   $fieldset.append($row1);
   $fieldset.append($row2);
   $fieldset.append($row3);
+  $fieldset.append($row4);
 
   $button_group.append($martingale_button);
   $button_group.append($fieldset);
@@ -309,6 +320,8 @@ function set_run() {
              mult *= $multiplier.val();
            }
            $("#totalRisk").val(total.toFixed(8));
+           $("#bub").val(parseInt(Math.pow(parseFloat($("#pct_payout").val()),parseFloat($("#steps").val()))));
+
            console.log('total:' + total);
 
            if (total != 0 && total < $('#pct_balance').val()) {
@@ -330,12 +343,89 @@ function set_run() {
 
 
 
+function chart(){
+	        Highcharts.setOptions({
+	            global: {
+	                useUTC: false
+	            }
+	        });
+	    
+	        var chart;
+	        $('#container').highcharts({
+	            chart: {
+	                type: 'spline',
+	                animation: Highcharts.svg, // don't animate in old IE
+	                marginRight: 10,
+	                events: {
+	                    load: function() {
+	    
+	                        // set up the updating of the chart each second
+	                        var series = this.series[0];
+	                        setInterval(function() {
+	                            var x = (new Date()).getTime(), // current time
+	                                y = parseFloat($("#pct_balance").val());
+	                            series.addPoint([x, y], true, true);
+	                        }, 1000);
+	                    }
+	                }
+	            },
+	            title: {
+	                text: 'Live random data'
+	            },
+	            xAxis: {
+	                type: 'datetime',
+	                tickPixelInterval: 150
+	            },
+	            yAxis: {
+	                title: {
+	                    text: 'Value'
+	                },
+	                plotLines: [{
+	                    value: 0,
+	                    width: 1,
+	                    color: '#808080'
+	                }]
+	            },
+	            tooltip: {
+	                formatter: function() {
+	                        return '<b>'+ this.series.name +'</b><br/>'+
+	                        Highcharts.dateFormat('%Y-%m-%d %H:%M:%S', this.x) +'<br/>'+
+	                        Highcharts.numberFormat(this.y, 2);
+	                }
+	            },
+	            legend: {
+	                enabled: false
+	            },
+	            exporting: {
+	                enabled: false
+	            },
+	            series: [{
+	                name: 'Random data',
+	                data: (function() {
+	                    // generate an array of random data
+	                    var data = [],
+	                        time = (new Date()).getTime(),
+	                        i;
+	    
+	                    for (i = -109; i <= 0; i++) {
+	                        data.push({
+	                            x: time + i * 1000,
+	                            y: Math.random() + 2
+	                        });
+	                    }
+	                    return data;
+	                })()
+	            }]
+	        });
+
+}
+
 //
 //The main stuff
 //
 $(document).ready( function() {
 
-  //tabber();
+  tabber();
 
   console.log('starting');
   cacheUSD();
@@ -346,7 +436,8 @@ $(document).ready( function() {
 
   //drawchart();
   setInterval(cacheUSD, 60000);
-  
+
+  chart();
 
   //set the balance
   //when the balance changes and we're martingaling
