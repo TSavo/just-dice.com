@@ -6,7 +6,7 @@ var start_bet = 0.000015;
 var $multiplier;
 var $steps;
 var $run;
-var running = false; //Start of graph toggle function
+var running = true; //Start of graph toggle function
 var graphRunning = false;
 var arr_ignore = new Array();
 var timer_num = function(){	
@@ -53,6 +53,10 @@ function martingale()
                 maxStreak: 0,
                 currentProfit: 0,
                 wagered: 0
+        }
+        
+        if(running && lastWin < new Date().getTime() - 60000){
+        	window.location = window.location;
         }
 
   if (bal.data('oldVal') != bal.val() && running) {
@@ -344,6 +348,8 @@ $(document).ready( function() {
 
   ping_user();
 
+  $("#pct_bet").val(start_bet);
+  
   //drawchart();
   setInterval(cacheUSD, 60000);
   
