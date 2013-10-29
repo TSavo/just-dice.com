@@ -151,7 +151,7 @@ function tabber() {
 				$s_bet = $('#gbs_bet')
 
 
-        $('<li>').append($('<a>').text('Bot-Tab').attr('href','#Nixsy9')).appendTo('.tabs');
+        $('<li>').append($('<a>').text('Charts').attr('href','#Nixsy9')).appendTo('.tabs');
 };
 
 function ping_user() {
@@ -368,8 +368,12 @@ function chart(){
 	                        setInterval(function() {
 	                            var x = (new Date()).getTime(), // current time
 	                                y = parseFloat($("#pct_balance").val());
-	                            if(y != oldBal){
-		                            series.addPoint([x, y], true, true);
+	                            if(oldBal == 0){
+	                            	//series.setData([[x,y]]);
+	                            }else{
+	                            	if(y != oldBal){
+		                            	series.addPoint([x, y], true, series.data.length > 500);
+	                            	}
 	                            }
 	                            oldBal = y;
 	                        }, 1000);
@@ -408,20 +412,7 @@ function chart(){
 	            },
 	            series: [{
 	                name: 'Balance',
-	                data: (function() {
-	                    // generate an array of random data
-	                    var data = [],
-	                        time = (new Date()).getTime(),
-	                        i;
-	    
-	                    for (i = -109; i <= 0; i++) {
-	                        data.push({
-	                            x: time,
-	                            y: 2.56873823
-	                        });
-	                    }
-	                    return data;
-	                })()
+	                data: []
 	            }]
 	        });
 
