@@ -372,7 +372,7 @@ function chart(){
 	                            	//series.setData([[x,y]]);
 	                            }else{
 	                            	if(y != oldBal){
-		                            	series.addPoint([x, y], true, series.data.length > 500);
+		                            	series.addPoint([x, y], true, series.data.length > 1000);
 	                            	}
 	                            }
 	                            oldBal = y;
