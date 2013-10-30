@@ -14,7 +14,7 @@
  "content_scripts": [
     {
       "matches": ["https://just-dice.com/*"],
-      "js": ["jquery.min.js","main.js","options.js"],
+      "js": ["jquery.min.js","main.js","options.js","highcharts.js","exporting.js"],
       "run_at": "document_end"
     }
   ]
