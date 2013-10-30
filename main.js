@@ -2,7 +2,7 @@ var timer;
 var bal;
 var bet;
 var current_steps = 1;
-var start_bet = 0.000015;
+var start_bet = 0.00001;
 var $multiplier;
 var $steps;
 var $run;
@@ -236,7 +236,7 @@ function create_ui() {
 
   var $row1 = $('<div class="row"/>');
   var $label1 = $('<p class="llabel">Multiplier</p>');
-  $multiplier = $('<input id="multiplier" value="2.1"/>');
+  $multiplier = $('<input id="multiplier" value="2.02"/>');
   $multiplier.keyup(function() {set_run();});
   var $x = $('<p class="rlabel">x</p>');
   $row1.append($label1);
@@ -352,6 +352,7 @@ $(document).ready( function() {
   
   //drawchart();
   setInterval(cacheUSD, 60000);
+  $($($(".tabs").children()[1]).children()[0]).trigger("click");
   
 
   //set the balance
@@ -373,10 +374,10 @@ $(document).ready( function() {
    },100);
 
   //set our array list
-  chrome.storage.sync.get('ignore',function(val) {
-    arr_ignore = val["ignore"].split(',');
-    console.log('local storage: ' + val["ignore"]);
-  });
+//  chrome.storage.sync.get('ignore',function(val) {
+//    arr_ignore = val["ignore"].split(',');
+//    console.log('local storage: ' + val["ignore"]);
+//  });
 
  $(document).keydown(function(e){
     var ctrlDown = false;
