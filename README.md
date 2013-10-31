@@ -1,4 +1,4 @@
-Sapphire's just-dice.com Enhancement Suite
+Just-dice.com Enhancement Suite
 ========================
 
 This is a Chrome extension that provides various enhancements to just-dice.com. 
@@ -7,11 +7,11 @@ This is a Chrome extension that provides various enhancements to just-dice.com.
 Features
 ------------
 
-FAST Martingale betting strategy (http://en.wikipedia.org/wiki/Martingale_(betting_system\)) including separate persistent starting balance customizable multiplier, stop loss, and odds calculator
-Real-time fiat currency readout and selector (18 currencies supported)
-Profit/Day calculator
-Balance chart (more coming soon!)
-Settings persistence, even across browsers (uses Chrome Sync)
+1. FAST Martingale betting strategy (http://en.wikipedia.org/wiki/Martingale_(betting_system\)) including separate persistent starting balance customizable multiplier, stop loss, and odds calculator
+2. Real-time fiat currency readout and selector (18 currencies supported)
+3. Profit/Day calculator
+4. Balance chart (more coming soon!)
+5. Settings persistence, even across browsers (uses Chrome Sync)
 
 ------------
 Installation

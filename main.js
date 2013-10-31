@@ -344,12 +344,11 @@ function create_ui() {
 	$button_group.append($martingale_button);
 	$button_group.append($fieldset);
 	$button_group.append($run_div);
+	$button_group.append("<div style='color:white; font-size:8pt;'>Like the bot? Send a tip to Sapphire here: 1Eyd47ZFc3AbRNBMaXRiJBStKvNka9ASwE</div>");
 
 	$(".container").eq('1').append($container);
 	$(".container").eq('1').append('<div style="clear:left;"/>');
-	$
-			.ajax(
-					"https://api.bitcoinaverage.com/all",
+	$.ajax("https://api.bitcoinaverage.com/all",
 					{
 						success : function(data) {
 							// usdCache =
@@ -374,8 +373,7 @@ function create_ui() {
 						}
 					});
 
-	$(".balance").append(
-			'<br><input id="pct_balanceUSD" class="readonly" tabindex="-1">');
+	$(".balance").append('<br><input id="pct_balanceUSD" class="readonly" tabindex="-1">');
 
 }
 
