@@ -124,7 +124,7 @@ function martingale() {
 
 		if (curr_bal > bal.data('oldVal')) {
 
-			$("#pct_bet").val(parseFloat(start_bet));
+			$("#pct_bet").val(parseFloat(start_bet).toFixed(8));
 			lastWin = new Date().getTime();
 
 			current_steps = 1;
@@ -149,7 +149,7 @@ function martingale() {
 			$("#a_hi").trigger('click');
 		} else {
 			current_steps = 1;
-			$("#pct_bet").val(start_bet);
+			$("#pct_bet").val(start_bet.toFixed(8));
 			running = false;
 		}
 
