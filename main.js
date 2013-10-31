@@ -3,509 +3,571 @@ var bal;
 var bet;
 var current_steps = 1;
 var start_bet = 0.00001;
-var $multiplier;
-var $steps;
 var $run;
-var running = false; //Start of graph toggle function
+var running = false; // Start of graph toggle function
 var graphRunning = false;
 var arr_ignore = new Array();
-var timer_num = function(){	
-	return parseInt(1000);
+var timer_num = function() {
+	return parseInt(50);
 };
 var current_bet_num = 0;
 
-// Extra buttons found on pastebin http://pastebin.com/n8X8uRAT Originally from a user called "v" and edited by another unknown user.
+// Extra buttons found on pastebin http://pastebin.com/n8X8uRAT Originally from
+// a user called "v" and edited by another unknown user.
 
-$('.button_inner_group:nth(2)').append(
-      '<button onClick=\'javascript:socket.emit("invest_box", csrf); socket.emit("invest", csrf, "all", $("#invest_code").val());\'>invest all<div class="key">J</div></button>').append(
-      '<button onClick=\'javascript:socket.emit("invest_box", csrf); socket.emit("divest", csrf, "all", $("#divest_code").val());\'>divest all<div class="key">K</div></button>');
+$('.button_inner_group:nth(2)')
+		.append(
+				'<button onClick=\'javascript:socket.emit("invest_box", csrf); socket.emit("invest", csrf, "all", $("#invest_code").val());\'>invest all<div class="key">J</div></button>')
+		.append(
+				'<button onClick=\'javascript:socket.emit("invest_box", csrf); socket.emit("divest", csrf, "all", $("#divest_code").val());\'>divest all<div class="key">K</div></button>');
 
 var usdCache = 0;
 var usdCacheAge = 0;
-function cacheUSD(){
-	if(usdCacheAge < new Date().getTime() - 60000){
-		$.ajax("https://api.bitcoinaverage.com/all", {success:function(data){
-			usdCache = data;
-		}});
+function cacheUSD() {
+	if (usdCacheAge < new Date().getTime() - 60000) {
+		$.ajax("https://api.bitcoinaverage.com/all", {
+			success : function(data) {
+				usdCache = data;
+			}
+		});
 		usdCacheAge = new Date().getTime();
 	}
 }
-function updateUSD(){
-		$(".investmentUSD").html((parseFloat($(".investment").html()) * usdCache[$("#currencySelector").val()]["averages"]["24h_avg"]).toFixed(2) + " " + $("#currencySelector").val());
-		$(".invest_pftUSD").html((parseFloat($(".invest_pft").html()) * usdCache[$("#currencySelector").val()]["averages"]["24h_avg"]).toFixed(2) + " " + $("#currencySelector").val());
-		$(".myprofitUSD").html((parseFloat($(".myprofit").html()) * usdCache[$("#currencySelector").val()]["averages"]["24h_avg"]).toFixed(2) + " " + $("#currencySelector").val());
-		$(".wageredUSD").html((parseFloat($(".wagered").html()) * usdCache[$("#currencySelector").val()]["averages"]["24h_avg"]).toFixed(2) + " " + $("#currencySelector").val());
-		$("#pct_balanceUSD").val(($("#pct_balance").val() * usdCache[$("#currencySelector").val()]["averages"]["24h_avg"]).toFixed(2) + " " + $("#currencySelector").val());
+function updateUSD() {
+	$(".investmentUSD").html(
+			(parseFloat($(".investment").html()) * usdCache[$(
+					"#currencySelector").val()]["averages"]["24h_avg"])
+					.toFixed(2)
+					+ " " + $("#currencySelector").val());
+	$(".invest_pftUSD").html(
+			(parseFloat($(".invest_pft").html()) * usdCache[$(
+					"#currencySelector").val()]["averages"]["24h_avg"])
+					.toFixed(2)
+					+ " " + $("#currencySelector").val());
+	$(".myprofitUSD")
+			.html(
+					(parseFloat($(".myprofit").html()) * usdCache[$(
+							"#currencySelector").val()]["averages"]["24h_avg"])
+							.toFixed(2)
+							+ " " + $("#currencySelector").val());
+	$(".wageredUSD").html(
+			(parseFloat($(".wagered").html()) * usdCache[$("#currencySelector")
+					.val()]["averages"]["24h_avg"]).toFixed(2)
+					+ " " + $("#currencySelector").val());
+	$("#pct_balanceUSD")
+			.val(
+					($("#pct_balance").val() * usdCache[$("#currencySelector")
+							.val()]["averages"]["24h_avg"]).toFixed(2)
+							+ " " + $("#currencySelector").val());
+}
+var profitPerMS = 0;
+var lastUpdate = new Date().getTime();
+var lastBal = 0;
+function updateProfitPer() {
+	// winning = true;
+	// console.debug("winning");
+	if (!$.isNumeric($("#pct_balance").val())) {
+		return;
+	}
+	var profit = parseFloat($("#pct_balance").val()) - lastBal;
+	lastBal = parseFloat($("#pct_balance").val());
+	var now = new Date().getTime();
+	var diff = Math.max(1, now - lastUpdate);
+	lastUpdate = now;
+	if (profitPerMS == 0 || isNaN(profitPerMS)) {
+		profitPerMS = profit / diff;
+	} else {
+		profitPerMS += profit / diff;
+		profitPerMS /= 2;
+	}
+	$(".profitPerS").html((profitPerMS * 1000).toFixed(8));
+	$(".profitPerSUSD").html(((profitPerMS * 60000 * 1440)).toFixed(8));
+}
+function updateUI() {
+	set_run();
+	updateUSD();
 }
 
 var losses = 0;
-var lastWin = new Date().getTime();
-var profitPerMS = 0;
+var lastWin = new Date().getTime() - 10000;
+var first = 0;
+function martingale() {
+	var series = $('#container').highcharts().series[0];
+	var x = (new Date()).getTime(), y = parseFloat($("#pct_balance").val());
+	if (y != oldBal) {
+		series
+				.addPoint([ x, y ], true, series.data.length > 100
+						|| first++ < 5);
+	}
+	oldBal = y;
 
-function martingale()
-{
-	setTimeout(updateUSD, 1);
-    //var winning = false;
-        /* Stats */
-        this.stats = {
-                won: 0,
-                lost: 0,
-                maxStreak: 0,
-                currentProfit: 0,
-                wagered: 0
-        }
-        
-        if(running && lastWin < new Date().getTime() - 60000){
-        	window.location = window.location;
-        }
-
-  if (bal.data('oldVal') != bal.val() && running) {
-    clearInterval(timer);
-
-    var curr_bal = bal.val();
-
-	if (curr_bal > bal.data('oldVal'))
-	{
-	    //winning = true;
-	    //console.debug("winning");
-        var profit = curr_bal - bal.data('oldVal');
-        var now = new Date().getTime();
-        var diff = now - lastWin;
-        if(lastWin == 0){
-        	profitPerMS = profit / diff; 
-        }else{
-        	profitPerMS += profit / diff;
-        	profitPerMS /= 2;
-        }
-        lastWin = now;
-        $(".profitPerS").html((profitPerMS * 1000).toFixed(8));
-        $(".profitPerSUSD").html(((profitPerMS * 60000)).toFixed(8));
-        $("#pct_bet").val(parseFloat(start_bet));
-
-            //Increase our bet by the multiplier
-            var new_val = $("#pct_bet").val(); // Why I had left a multiplyer here.. Madness Fixed now.
-
-            //get rid of scientific notation
-            if (String(new_val).indexOf('e') !== -1) {
-                var arr = new Array();
-                arr = String(new_val).split('e');
-                new_val = new_val.toFixed(arr[1].substring(1));
-                console.log('new_val='  +new_val);
-            }
-
-
-            $("#pct_bet").val(new_val);
-            current_steps = 1;
-            
-            //Increase the steps
-            $("#a_hi").trigger('click');
+	// var winning = false;
+	/* Stats */
+	this.stats = {
+		won : 0,
+		lost : 0,
+		maxStreak : 0,
+		currentProfit : 0,
+		wagered : 0
 	}
 
+	if (running && lastWin < new Date().getTime() - 60000) {
+		window.location = window.location;
+		lastWin = new Date().getTime();
+	}
 
-	else if ($.isNumeric($multiplier.val()) &&
-             $.isNumeric($steps.val()) &&
-            (current_steps < $steps.val())) {
+	if (bal.data('oldVal') != bal.val() && running) {
+		clearInterval(timer);
+		setTimeout(updateUI, 1);
 
-            //Increase our bet by the multiplier
-            var new_val = $("#pct_bet").val() * $multiplier.val();
-            //$multiplier.val(2.01 + (Math.random() * 0.65) );
-            //get rid of scientific notation
-            if (String(new_val).indexOf('e') !== -1) {
-                var arr = new Array();
-                arr = String(new_val).split('e');
-                new_val = new_val.toFixed(arr[1].substring(1));
-                console.log('new_val='  +new_val);
-            }
+		var curr_bal = bal.val();
 
+		if (curr_bal > bal.data('oldVal')) {
 
-            $("#pct_bet").val(new_val);
+			$("#pct_bet").val(parseFloat(start_bet));
+			lastWin = new Date().getTime();
 
-            //Increase the steps
-            current_steps++;
-            $("#a_hi").trigger('click');
-    }
+			current_steps = 1;
 
-    //otherwise we go back to the start
-    else {
-      current_steps = 1;
-      $("#pct_bet").val(start_bet);
-      running = false;
-    }
+			// Increase the steps
+			$("#a_hi").trigger('click');
+		}
 
-    // Updated stored value
-    bal.data('oldVal', bal.val());
-    timer = setInterval(function() { martingale() },timer_num());
+		else if ($.isNumeric($("#multiplier").val())
+				&& $.isNumeric($("#steps").val())
+				&& (current_steps < $("#steps").val())) {
+			setTimeout(updateUI, 1);
 
-  }
+			// Increase our bet by the multiplier
+			var new_val = ($("#pct_bet").val() * $("#multiplier").val())
+					.toFixed(8);
 
-  else bal.data('oldVal', bal.val());
+			$("#pct_bet").val(new_val);
+
+			// Increase the steps
+			current_steps++;
+			$("#a_hi").trigger('click');
+		} else {
+			current_steps = 1;
+			$("#pct_bet").val(start_bet);
+			running = false;
+		}
+
+		// Updated stored value
+		bal.data('oldVal', bal.val());
+		timer = setInterval(function() {
+			martingale()
+		}, timer_num());
+
+	}
+
+	else
+		bal.data('oldVal', bal.val());
 
 }
 
 // Added Extra tab from Grays Bot. This is currently just a placeholder.
 function tabber() {
-        var markup = '<div class="bot-stats"><div class="statspanel"><h2>Stats</h2><div class="clear"></div><div class="slabel">Bets placed:</div><span id="gbs_bet">0</span><div class="clear"><div class="clear"></div></div></div><div class="clear"></div><div id="container" style="height: 400px; margin: 0 auto"></div><div class="bot-foot">';
-                $panelWrapper = $('<div>').attr('id','Nixsy9').css({display: 'none'}).insertAfter('#faq'),
-                $panel = $('<div>').addClass('panel').append(markup).appendTo($panelWrapper),
+	var markup = '<div class="bot-stats"><div class="statspanel"><h2>Stats</h2></div><div class="clear"></div><div id="container" style="height: 400px; margin: 0 auto"></div></div>';
+	$panelWrapper = $('<div>').attr('id', 'Nixsy9').css({
+		display : 'none'
+	}).insertAfter('#faq'), $panel = $('<div>').addClass('panel')
+			.append(markup).appendTo($panelWrapper),
 
-				$s_bet = $('#gbs_bet')
+	$s_bet = $('#gbs_bet')
 
-
-        $('<li>').append($('<a>').text('Charts').attr('href','#Nixsy9')).appendTo('.tabs');
+	$('<li>').append($('<a>').text('Charts').attr('href', '#Nixsy9')).appendTo(
+			'.tabs');
 };
 
 function ping_user() {
 
-  var log = $(".chatlog");
-  log.data('oldVal',log.html());
-  log.data('length',0);
-  setInterval(function() {
+	var log = $(".chatlog");
+	log.data('oldVal', log.html());
+	log.data('length', 0);
+	setInterval(
+			function() {
 
-        var new_str = log.html();
-        var arr = new Array();
-        arr = new_str.split('<br>');
-  	if (log.data('length') != arr.length || log.data('length')===101) {
+				var new_str = log.html();
+				var arr = new Array();
+				arr = new_str.split('<br>');
+				if (log.data('length') != arr.length
+						|| log.data('length') === 101) {
 
-          var depth;
-          if (log.data('length') === 101) {console.log('here'); depth = 0;}
-          else depth = arr.length - 2;
+					var depth;
+					if (log.data('length') === 101) {
+						// console.log('here');
+						depth = 0;
+					} else
+						depth = arr.length - 2;
 
+					// if this is the first time we'll look at every line,
+					// otherwise we'll just do the last (which is arr.length -
+					// 2)
+					for ( var line_count = depth; line_count < arr.length - 1; line_count++) {
 
-          //if this is the first time we'll look at every line,
-          //otherwise we'll just do the last (which is arr.length - 2)
-          for(var line_count=depth; line_count < arr.length - 1; line_count++)
-          {
+						var line = arr[line_count];
+						if (typeof line !== 'undefined') {
 
-            var line = arr[line_count];
-            if (typeof line !== 'undefined') {
+							var line_items = line.split(' ');
+							var username = $('#login span:first-child').text();
+							var pos = line_items.indexOf(username, 3);
+							if (pos >= 0) {
+								line_items[pos] = line_items[pos].replace(
+										username,
+										'<span style="color:red;font-weight:bold;">'
+												+ username + '</span>');
 
-                var line_items = line.split(' ');
-                var username = $('#login span:first-child').text();
-                var pos = line_items.indexOf(username,3);
-                if (pos >=0) {
-                    line_items[pos] = line_items[pos].replace(username,
-			'<span style="color:red;font-weight:bold;">' + username + '</span>');
+								var new_line = line_items.join(' ');
+								arr[line_count] = new_line;
+							}
 
-                    var new_line = line_items.join(' ');
-                    arr[line_count] = new_line;
-                }
+							// ignore
+							var i;
+							for (i = 0; i < arr_ignore.length; i++) {
+								var ignore_user = '&lt;' + arr_ignore[i]
+										+ '&gt;';
+								var ignore_pos = line_items.indexOf(
+										ignore_user, 2);
+								// console.log('target:' + line_items[2]);
+								if (ignore_pos > -1)
+									arr[line_count] = 'ignored';
+							}
+						} // if undefined
+					} // for
 
-                //ignore
-                var i;
-                for(i=0;i<arr_ignore.length ;i++) {
-                    var ignore_user = '&lt;' + arr_ignore[i] + '&gt;';
-                    var ignore_pos = line_items.indexOf(ignore_user,2);
-                    //console.log('target:' +  line_items[2]);
-                    if (ignore_pos > -1)  arr[line_count] = 'ignored';
-                }
-            } //if undefined
-	  }  //for
-
-          var new_log = arr.join('<br>');
-          log.html( new_log);
-    	  log.data('length', arr.length);
-          console.log('length: ' + arr.length);
-          //$.playSound('notify.wav');
-        }
-   },100);
+					var new_log = arr.join('<br>');
+					log.html(new_log);
+					log.data('length', arr.length);
+					// console.log('length: ' + arr.length);
+					// $.playSound('notify.wav');
+				}
+			}, 100);
 }
 
 function create_ui() {
 
-  var $container = $('<div class="container"/>');
-  var $button_group = $('<div class="button_group"/>');
-  $container.append($button_group);
+	var $container = $('<div class="container"/>');
+	var $button_group = $('<div class="button_group"/>');
+	$container.append($button_group);
 
-  var $martingale_button = $('<button class="button_label chance_toggle" style="margin-top:20px;">Bot</button>');
+	var $martingale_button = $('<button class="button_label chance_toggle" style="margin-top:4px;height:189px;">Bot</button>');
 
-  var $run_div = $('<div class="button_inner_group"/>');
-  $run = $('<button id="c_run" style="margin-top:5px;">Start<div class="key">R</div></button>');
+	var $run_div = $('<div class="button_inner_group"/>');
+	$run = $('<button id="c_run" style="margin-top:5px;">Start<div class="key">R</div></button>');
 
-  $run.click(function() {
-	running = true;
-	start_bet =  $("#pct_bet").val();
-	$("#a_hi").trigger('click');
-  });
-  $run_div.append($run);
+	$run.click(function() {
+		running = true;
+		start_bet = $("#startingBet").val();
+		setSetting("startingBet", start_bet);
+		$("#a_hi").trigger('click');
+	});
+	$run_div.append($run);
 
-  $Stop = $('<button id="c_stop" style="margin-top:5px;">Stop<div class="key">Q</div></button>');
-  $Stop.click(function() {
-	  running = false;
-  });
-  $run_div.append($Stop);
+	$Stop = $('<button id="c_stop" style="margin-top:5px;">Stop<div class="key">Q</div></button>');
+	$Stop.click(function() {
+		running = false;
+	});
+	$run_div.append($Stop);
 
-  var $row1 = $('<div class="row"/>');
-  var $label1 = $('<p class="llabel">Multiplier</p>');
-  $multiplier = $('<input id="multiplier" value="2.02"/>');
-  $multiplier.keyup(function() {set_run();});
-  var $x = $('<p class="rlabel">x</p>');
-  $row1.append($label1);
-  $row1.append($multiplier);
-  $row1.append($x);
+	var $row0 = $('<div class="row"/>');
+	var $label0 = $('<p class="llabel">Starting Bet</p>');
+	var $startingBet = $('<input id="startingBet" value="0.00001"/>');
+	$startingBet.keyup(function() {
+		start_bet = $startingBet.val();
+		setSetting("startingBet", start_bet);
+		set_run();
+	});
+	getSetting("startingBet", function(startingBet) {
+		$("#pct_bet").val(startingBet);
+		$("#startingBet").val(startingBet);
+		start_bet = startingBet;
+	});
+	var $x = $('<p class="rlabel">BTC</p>');
+	$row0.append($label0);
+	$row0.append($startingBet);
+	$row0.append($x);
 
-  var $row2 = $('<div class="row"/>');
-  var $label2 = $('<p class="llabel">Max losses</p>');
-  $steps = $('<input id="steps" value="16"/>');
-  $steps.keyup(function() {set_run();});
-  var $numz = $('<p class="rlabel">#</p>');
-  $row2.append($label2);
-  $row2.append($steps);
-  $row2.append($numz);
+	var $row1 = $('<div class="row"/>');
+	var $label1 = $('<p class="llabel">Multiplier</p>');
+	var $multiplier = $('<input id="multiplier" value="2.02"/>');
+	$multiplier.keyup(function() {
+		setSetting("multiplier", $("#multiplier").val());
+		set_run();
+	});
+	getSetting("multiplier", function(val) {
+		$("#multiplier").val(val);
+	});
+	$x = $('<p class="rlabel">x</p>');
+	$row1.append($label1);
+	$row1.append($multiplier);
+	$row1.append($x);
 
-  var $row3 = $('<div class="row"/>');
-  var $label3 = $('<p class="llabel">Total risk</p>');
-  $delay = $('<input id="totalRisk" class="readonly"/>');
-  $numz = $('<p class="rlabel">BTC</p>');
-  $row3.append($label3);
-  $row3.append($delay);
-  $row3.append($numz);
-  
-  
-  var $row4 = $('<div class="row"/>');
-  var $label4 = $('<p class="llabel">Bets Until Bust</p>');
-  $delay = $('<input id="bub" class="readonly"/>');
-  $numz = $('<p class="rlabel">#</p>');
-  $row4.append($label4);
-  $row4.append($delay);
-  $row4.append($numz);
-  
-  
+	var $row2 = $('<div class="row"/>');
+	var $label2 = $('<p class="llabel">Max losses</p>');
+	var $steps = $('<input id="steps" value="15"/>');
+	$steps.keyup(function() {
+		setSetting("maxLosses", $("#steps").val());
+		set_run();
+	});
+	getSetting("maxLosses", function(val) {
+		$("#steps").val(val);
+	});
+	var $numz = $('<p class="rlabel">#</p>');
+	$row2.append($label2);
+	$row2.append($steps);
+	$row2.append($numz);
 
-  var $fieldset = $('<fieldset/>');
-  $fieldset.append($row1);
-  $fieldset.append($row2);
-  $fieldset.append($row3);
-  $fieldset.append($row4);
+	var $row3 = $('<div class="row"/>');
+	var $label3 = $('<p class="llabel">Total risk</p>');
+	$delay = $('<input id="totalRisk" class="readonly"/>');
+	$numz = $('<p class="rlabel">BTC</p>');
+	$row3.append($label3);
+	$row3.append($delay);
+	$row3.append($numz);
 
-  $button_group.append($martingale_button);
-  $button_group.append($fieldset);
-  $button_group.append($run_div);
+	var $row4 = $('<div class="row"/>');
+	var $label4 = $('<p class="llabel">Bets Until Bust</p>');
+	$delay = $('<input id="bub" class="readonly"/>');
+	$numz = $('<p class="rlabel">#</p>');
+	$row4.append($label4);
+	$row4.append($delay);
+	$row4.append($numz);
 
-  $(".container").eq('1').append($container);
-  $(".container").eq('1').append('<div style="clear:left;"/>');
-  $.ajax("https://api.bitcoinaverage.com/all", {success:function(data){
-		//usdCache = parseFloat(data.USD.averages["24h_avg"]);
-	currencyOptions = "";
-	for(i in data){
-		if(i=="USD"){
-			currencyOptions += "<option value=\"" + i + "\" SELECTED>" + i + "</option>";
-			
-		}else if(i.length == 3){
-			currencyOptions += "<option value=\"" + i + "\">" + i + "</option>";
-		}
-	}
-	$(".chatstat table tbody").append(
-			'<tr><th><select id="currencySelector">' + currencyOptions + '</select></th><td><span class="investmentUSD"></span></td><td><span class="invest_pftUSD"></span></td><td></td><td><span class="profitPerSUSD"></span></td><td><span class="wageredUSD"></span></td><td><span class="myprofitUSD"></span></td></tr>'		
-	);
-	setTimeout(updateUSD,5000);
-  }});
-  
-  $(".balance").append('<br><input id="pct_balanceUSD" class="readonly" tabindex="-1">');
-	
+	var $fieldset = $('<fieldset/>');
+	$fieldset.append($row0);
+	$fieldset.append($row1);
+	$fieldset.append($row2);
+	$fieldset.append($row3);
+	$fieldset.append($row4);
+
+	$button_group.append($martingale_button);
+	$button_group.append($fieldset);
+	$button_group.append($run_div);
+
+	$(".container").eq('1').append($container);
+	$(".container").eq('1').append('<div style="clear:left;"/>');
+	$
+			.ajax(
+					"https://api.bitcoinaverage.com/all",
+					{
+						success : function(data) {
+							// usdCache =
+							// parseFloat(data.USD.averages["24h_avg"]);
+							currencyOptions = "";
+							for (i in data) {
+								if (i == "USD") {
+									currencyOptions += "<option value=\"" + i
+											+ "\" SELECTED>" + i + "</option>";
+
+								} else if (i.length == 3) {
+									currencyOptions += "<option value=\"" + i
+											+ "\">" + i + "</option>";
+								}
+							}
+							$(".chatstat table tbody")
+									.append(
+											'<tr><th><select id="currencySelector">'
+													+ currencyOptions
+													+ '</select></th><td><span class="investmentUSD"></span></td><td><span class="invest_pftUSD"></span></td><td></td><td><span class="profitPerSUSD"></span></td><td><span class="wageredUSD"></span></td><td><span class="myprofitUSD"></span></td></tr>');
+							setTimeout(updateUSD, 5000);
+						}
+					});
+
+	$(".balance").append(
+			'<br><input id="pct_balanceUSD" class="readonly" tabindex="-1">');
+
 }
 
 function set_run() {
-  if ($multiplier !== undefined &&
-      $steps !== undefined   )
-      if ( $.isNumeric($multiplier.val()) &&
-           $.isNumeric($steps.val()) &&
-           $.isNumeric($('#pct_bet').val())) {
+	var $multiplier = $("#multiplier");
+	if ($multiplier !== undefined && $("#steps") !== undefined)
+		if ($.isNumeric($multiplier.val()) && $.isNumeric($("#steps").val())
+				&& $.isNumeric($('#startingBet').val())) {
 
-           var total = 0;
-           var mult = 1;
-           var i;
-          console.log('steps: ' + $steps.val() +
-          '   multiplier:' + $multiplier.val() +
-          '   bal: ' + $('#pct_balance').val() +
-          '   bet:' + $('#pct_bet').val());
+			var total = 0;
+			var mult = 1;
+			var i;
+			// console.log('steps: ' + $("#steps").val() + ' multiplier:'
+			// + $multiplier.val() + ' bal: ' + $('#pct_balance').val()
+			// + ' bet:' + start_bet);
 
-           for(i=0;i<$steps.val();i++) {
-             total+= $('#pct_bet').val() * mult;
-             mult *= $multiplier.val();
-           }
-           $("#totalRisk").val(total.toFixed(8));
-           $("#bub").val(parseInt(Math.pow(parseFloat($("#pct_payout").val()),parseFloat($("#steps").val()))));
+			for (i = 0; i < $("#steps").val(); i++) {
+				total += start_bet * mult;
+				mult *= $multiplier.val();
+			}
+			$("#totalRisk").val(total.toFixed(8));
+			$("#bub").val(
+					parseInt(Math.pow(
+							4 * (parseFloat($("#pct_chance").val()) * 0.01),
+							parseFloat($("#steps").val()))));
 
-           console.log('total:' + total);
+			// console.log('total:' + total);
 
-           if (total != 0 && total < $('#pct_balance').val()) {
-             console.log("setting class VALID");
-	     $run.removeClass('invalid');
-           }
-           else {
-             console.log("setting class invalid");
-	     $run.addClass('invalid');
-           }
-      }
+			if (total != 0 && total < $('#pct_balance').val()) {
+				// console.log("setting class VALID");
+				$run.removeClass('invalid');
+			} else {
+				// console.log("setting class invalid");
+				$run.addClass('invalid');
+			}
+		}
 
-      else {
-        console.log("setting class invalid");
-	$run.addClass('invalid');
+		else {
+			// console.log("setting class invalid");
+			$run.addClass('invalid');
 
-      }
+		}
 }
 
 var oldBal = 0;
 
-function chart(){
-	        Highcharts.setOptions({
-	            global: {
-	                useUTC: false
-	            }
-	        });
-	    
-	        var chart;
-	        $('#container').highcharts({
-	            chart: {
-	                type: 'spline',
-	                animation: Highcharts.svg, // don't animate in old IE
-	                marginRight: 10,
-	                events: {
-	                    load: function() {
-	    
-	                        // set up the updating of the chart each second
-	                        var series = this.series[0];
-	                        setInterval(function() {
-	                            var x = (new Date()).getTime(), // current time
-	                                y = parseFloat($("#pct_balance").val());
-	                            if(oldBal == 0){
-	                            	//series.setData([[x,y]]);
-	                            }else{
-	                            	if(y != oldBal){
-		                            	series.addPoint([x, y], true, series.data.length > 1000);
-	                            	}
-	                            }
-	                            oldBal = y;
-	                        }, 1000);
-	                    }
-	                }
-	            },
-	            title: {
-	                text: 'Balance'
-	            },
-	            xAxis: {
-	                type: 'datetime',
-	                tickPixelInterval: 150
-	            },
-	            yAxis: {
-	                title: {
-	                    text: 'Value'
-	                },
-	                plotLines: [{
-	                    value: 0,
-	                    width: 1,
-	                    color: '#808080'
-	                }]
-	            },
-	            tooltip: {
-	                formatter: function() {
-	                        return '<b>'+ this.series.name +'</b><br/>'+
-	                        Highcharts.dateFormat('%Y-%m-%d %H:%M:%S', this.x) +'<br/>'+
-	                        Highcharts.numberFormat(this.y, 2);
-	                }
-	            },
-	            legend: {
-	                enabled: false
-	            },
-	            exporting: {
-	                enabled: false
-	            },
-	            series: [{
-	                name: 'Balance',
-	                data: (function() {
-	                    // generate an array of random data
-	                    var data = [],
-	                        time = (new Date()).getTime(),
-	                        i;
-	                    	for(var x = 0; x< 1; x++){
-	                    		data.push([time, 0]);
-	                    	}
-	               
-	                    return data;
-	                })()
-	            }]
-	        });
+function chart() {
+	Highcharts.setOptions({
+		global : {
+			useUTC : false
+		}
+	});
+
+	var chart;
+	$('#container').highcharts(
+			{
+				title : {
+					text : 'Balance'
+				},
+				xAxis : {
+					type : 'datetime',
+					tickPixelInterval : 150
+				},
+				yAxis : {
+					title : {
+						text : 'Value'
+					},
+					plotLines : [ {
+						value : 0,
+						width : 1,
+						color : '#808080'
+					} ]
+				},
+				tooltip : {
+					formatter : function() {
+						return '<b>'
+								+ this.series.name
+								+ '</b><br/>'
+								+ Highcharts.dateFormat('%Y-%m-%d %H:%M:%S',
+										this.x) + '<br/>'
+								+ Highcharts.numberFormat(this.y, 2);
+					}
+				},
+				legend : {
+					enabled : false
+				},
+				exporting : {
+					enabled : false
+				},
+				series : [ {
+					name : 'Balance',
+					data : (function() {
+						// generate an array of random data
+						var data = [], time = (new Date()).getTime(), i;
+
+						return data;
+					})()
+				} ]
+			});
 
 }
 
+function getSetting(key, callback) {
+	chrome.storage.sync.get(key, function(settingsSync) {
+		if (settingsSync[key] != undefined) {
+			callback(settingsSync[key]);
+		} else {
+			return null;
+		}
+	});
+}
+function setSetting(key, value) {
+	chrome.storage.sync.get(null, function(val) {
+		val[key] = value;
+		chrome.storage.sync.set(val);
+	});
+}
 //
-//The main stuff
+// The main stuff
 //
-$(document).ready( function() {
+$(document).ready(function() {
 
-  tabber();
+	tabber();
 
-  console.log('starting');
-  cacheUSD();
-  
-  create_ui();
+	console.log('starting');
+	cacheUSD();
 
-  ping_user();
+	create_ui();
 
-  $("#pct_bet").val(start_bet);
-  
-  //drawchart();
-  setInterval(cacheUSD, 60000);
-  chart();
+	ping_user();
 
-  //set the balance
-  //when the balance changes and we're martingaling
-  //we'll do our stuff
-  bal = $("#pct_balance");
-  bal.data('oldVal', bal.val());
-  timer = setInterval(function() { martingale() },timer_num());
+	// drawchart();
+	setInterval(cacheUSD, 60000);
+	setInterval(updateProfitPer, 10000);
+	chart();
 
-  //we also monitor the bet b/c it can also determine if
-  //we have enough btc to bet the martingale run
-  bet = $("#pct_bet");
-  bet.data('oldVal',bet.val());
-  setInterval(function() {
-  	if (bet.data('oldVal') != bet.val() && !running) {
-    	  bet.data('oldVal', bet.val());
-	  set_run();
-	}
-   },100);
+	// set the balance
+	// when the balance changes and we're martingaling
+	// we'll do our stuff
+	bal = $("#pct_balance");
+	bal.data('oldVal', bal.val());
+	lastBal = bal.val();
+	timer = setInterval(function() {
+		martingale()
+	}, timer_num());
 
-  //set our array list
-//  chrome.storage.sync.get('ignore',function(val) {
-//    arr_ignore = val["ignore"].split(',');
-//    console.log('local storage: ' + val["ignore"]);
-//  });
+	// we also monitor the bet b/c it can also determine if
+	// we have enough btc to bet the martingale run
+	bet = $("#pct_bet");
+	bet.data('oldVal', bet.val());
 
- $(document).keydown(function(e){
-    var ctrlDown = false;
-    var ctrlKey = 17, qKey = 81,rKey = 82;
+	// set our array list
 
-    if (! $(document.activeElement).is('input') &&
-      (e.keyCode == rKey)) {
-	running = true;
-        start_bet =  $("#pct_bet").val();
-        $("#a_hi").trigger('click');
-    }
+	$(document).keydown(function(e) {
+		var ctrlDown = false;
+		var ctrlKey = 17, qKey = 81, rKey = 82;
 
-    $(document).keydown(function(e)
-    {
-        if (e.keyCode == ctrlKey) ctrlDown = true;
-    }).keyup(function(e)
-    {
-        if (e.keyCode == ctrlKey) ctrlDown = false;
-    });
+		if (!$(document.activeElement).is('input') && (e.keyCode == rKey)) {
+			running = true;
+			start_bet = $("#startingBet").val();
+			setSetting("startingBet", start_bet);
+			$("#a_hi").trigger('click');
+		}
 
-    if (ctrlDown && (e.keyCode == qKey)) {
-      clearInterval(timer);
-      running = false;
-      current_steps = 1;
-    }
-  });
+		$(document).keydown(function(e) {
+			if (e.keyCode == ctrlKey)
+				ctrlDown = true;
+		}).keyup(function(e) {
+			if (e.keyCode == ctrlKey)
+				ctrlDown = false;
+		});
+
+		if (ctrlDown && (e.keyCode == qKey)) {
+			clearInterval(timer);
+			running = false;
+			current_steps = 1;
+		}
+	});
 
 });
 
-(function($){
+(function($) {
 
-  $.extend({
-    playSound: function(){
-      return $("<embed src='"+arguments[0]+"' hidden='true' autostart='true' loop='false' class='playSound'>").appendTo('body');
-    }
-  });
+	$
+			.extend({
+				playSound : function() {
+					return $(
+							"<embed src='"
+									+ arguments[0]
+									+ "' hidden='true' autostart='true' loop='false' class='playSound'>")
+							.appendTo('body');
+				}
+			});
 
 })(jQuery);
