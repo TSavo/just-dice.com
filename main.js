@@ -123,7 +123,7 @@ function martingale() {
 		var curr_bal = bal.val();
 
 		if (curr_bal > bal.data('oldVal')) {
-
+			updateProfitPer();
 			$("#pct_bet").val(parseFloat(start_bet).toFixed(8));
 			lastWin = new Date().getTime();
 
@@ -168,7 +168,7 @@ function martingale() {
 
 // Added Extra tab from Grays Bot. This is currently just a placeholder.
 function tabber() {
-	var markup = '<div class="bot-stats"><div class="statspanel"><h2>Stats</h2></div><div class="clear"></div><div id="container" style="height: 400px; margin: 0 auto"></div></div>';
+	var markup = '<div class="bot-stats"><div class="statspanel"><h2>Stats</h2></div><div class="clear"></div><div id="container" style="height: 400px; min-width:916px; margin: 0 auto"></div></div>';
 	$panelWrapper = $('<div>').attr('id', 'Nixsy9').css({
 		display : 'none'
 	}).insertAfter('#faq'), $panel = $('<div>').addClass('panel')
@@ -250,21 +250,25 @@ function create_ui() {
 	var $container = $('<div class="container"/>');
 	var $button_group = $('<div class="button_group"/>');
 	$container.append($button_group);
+	$button_group2 = $('<div class="button_group" style="margin:18px; margin-left:-18px;"/>');
+	$container.append($button_group2);
+	
+	var $martingale_button = $('<button class="button_label chance_toggle" style="margin-top:4px;height:113px;">Bot</button>');
 
-	var $martingale_button = $('<button class="button_label chance_toggle" style="margin-top:4px;height:189px;">Bot</button>');
-
-	var $run_div = $('<div class="button_inner_group"/>');
-	$run = $('<button id="c_run" style="margin-top:5px;">Start<div class="key">R</div></button>');
+	var $run_div = $('<div class="button_inner_group" />');
+	$run = $('<button id="c_run" style="margin-top:3px;">Start<div class="key">R</div></button>');
 
 	$run.click(function() {
+		lastWin = new Date().getTime();
 		running = true;
 		start_bet = $("#startingBet").val();
 		setSetting("startingBet", start_bet);
+		$("pct_bet").val(start_bet);
 		$("#a_hi").trigger('click');
 	});
 	$run_div.append($run);
 
-	$Stop = $('<button id="c_stop" style="margin-top:5px;">Stop<div class="key">Q</div></button>');
+	$Stop = $('<button id="c_stop" style="margin-top:3px;">Stop<div class="key">Q</div></button>');
 	$Stop.click(function() {
 		running = false;
 	});
@@ -333,19 +337,46 @@ function create_ui() {
 	$row4.append($label4);
 	$row4.append($delay);
 	$row4.append($numz);
+	
+	var $row5 = $('<div class="row"/>');
+	var $label5 = $('<p class="llabel">Auto-Start Bot</p>');
+	var autostart = $('<input id="autostart" class="readonly" style="color:red; cursor:pointer;" value = "DISABLED"/>');
+	var end = $('<p class="rlabel">&nbsp;</p>');
+	autostart.click(function() {
+		if($("#autostart").val() == "ENABLED"){
+			$("#autostart").val("DISABLED").css("color", "red");
+		}else{
+			$("#autostart").val("ENABLED").css("color", "green");
+		}
+		setSetting("autostart", $("#autostart").val());
+	});
+	getSetting("autostart", function(a){
+		if(a == "ENABLED"){
+			$("#autostart").val(a).css("color", "green");
+			running = true;
+		}
+	});
+	$row5.append($label5);
+	$row5.append(autostart);
+	$row5.append(end);
 
 	var $fieldset = $('<fieldset/>');
+	var $fieldset2 = $("<fieldset/>");
 	$fieldset.append($row0);
 	$fieldset.append($row1);
 	$fieldset.append($row2);
-	$fieldset.append($row3);
-	$fieldset.append($row4);
+	$fieldset2.append($row3);
+	$fieldset2.append($row4);
+	$fieldset2.append($row5);
 
 	$button_group.append($martingale_button);
 	$button_group.append($fieldset);
-	$button_group.append($run_div);
+	$button_group.append($fieldset2);
 	$button_group.append("<div style='color:white; font-size:8pt;'>Like the bot? Send a tip to Sapphire here: 1Eyd47ZFc3AbRNBMaXRiJBStKvNka9ASwE</div>");
 
+	$button_group2.append($run_div);
+	
+	
 	$(".container").eq('1').append($container);
 	$(".container").eq('1').append('<div style="clear:left;"/>');
 	$.ajax("https://api.bitcoinaverage.com/all",
@@ -374,7 +405,6 @@ function create_ui() {
 					});
 
 	$(".balance").append('<br><input id="pct_balanceUSD" class="readonly" tabindex="-1">');
-
 }
 
 function set_run() {
@@ -408,13 +438,15 @@ function set_run() {
 			} else {
 				// console.log("setting class invalid");
 				$run.addClass('invalid');
+				running = false;
+				
 			}
 		}
-
 		else {
 			// console.log("setting class invalid");
 			$run.addClass('invalid');
-
+			running = false;
+			setTimeout(set_run, 500);
 		}
 }
 
@@ -507,7 +539,7 @@ $(document).ready(function() {
 
 	// drawchart();
 	setInterval(cacheUSD, 60000);
-	setInterval(updateProfitPer, 10000);
+	//setInterval(updateProfitPer, 10000);
 	chart();
 
 	// set the balance
@@ -526,6 +558,8 @@ $(document).ready(function() {
 	bet.data('oldVal', bet.val());
 
 	// set our array list
+	
+	
 
 	$(document).keydown(function(e) {
 		var ctrlDown = false;
