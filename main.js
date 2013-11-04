@@ -127,6 +127,9 @@ function martingale() {
 	var x = (new Date()).getTime(), y = parseFloat($("#pct_balance").val());
 	if (y != oldBal && !isNaN(y)) {
 		balanceData[0].data.push([x,y]);
+		if(balanceData[0].data.length > 200){
+			balanceData[0].data.splice(0,1);
+		}
 		plot.setData(balanceData);
 		plot.setupGrid();
 		plot.draw();
@@ -172,6 +175,12 @@ function martingale() {
 			varianceData[1].data.push([new Date().getTime(), lossesBeforeWins]);
 			varianceData[2].data.push([new Date().getTime(), varianceMA]);
 			varianceData[3].data.push([new Date().getTime(), winLossRatioMA]);
+			if(varianceData[0].data.length > 200){
+				varianceData[0].data.splice(0,1);
+				varianceData[1].data.splice(0,1);
+				varianceData[2].data.splice(0,1);
+				varianceData[3].data.splice(0,1);
+			}
 			variancePlot.setData(varianceData);
 			variancePlot.setupGrid();
 			variancePlot.draw();
@@ -199,6 +208,13 @@ function martingale() {
 			varianceData[1].data.push([new Date().getTime(), lossesBeforeWins]);
 			varianceData[2].data.push([new Date().getTime(), varianceMA]);
 			varianceData[3].data.push([new Date().getTime(), winLossRatioMA]);
+			if(varianceData[0].data.length > 200){
+				varianceData[0].data.splice(0,1);
+				varianceData[1].data.splice(0,1);
+				varianceData[2].data.splice(0,1);
+				varianceData[3].data.splice(0,1);
+			}
+			
 			variancePlot.setData(varianceData);
 			variancePlot.setupGrid();
 			variancePlot.draw();
