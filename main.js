@@ -7,6 +7,38 @@ var $run;
 var running = false; // Start of graph toggle function
 var graphRunning = false;
 var arr_ignore = new Array();
+var oldBal = 0;
+
+var plot;
+var variancePlot;
+var balanceData = [{
+	data: [],
+	lines: { show: true },
+    points: { show: true }
+}];
+var varianceData = [{
+	data: [],
+	lines: { show: true },
+    points: { show: true }
+},{
+	data: [],
+	lines: { show: true },
+    points: { show: true }
+},{
+	data: [],
+	lines: { show: true },
+    points: { show: true }
+},{
+	data: [],
+	lines: { show: true },
+    points: { show: true }
+}]
+var winsBeforeLosses = 0;
+var lossesBeforeWins = 0;
+var varianceMA = 0;
+var winLossRatioMA = 0;
+
+
 var timer_num = function() {
 	return parseInt(50);
 };
@@ -92,12 +124,12 @@ var losses = 0;
 var lastWin = new Date().getTime() - 10000;
 var first = 0;
 function martingale() {
-	var series = $('#container').highcharts().series[0];
 	var x = (new Date()).getTime(), y = parseFloat($("#pct_balance").val());
-	if (y != oldBal) {
-		series
-				.addPoint([ x, y ], true, series.data.length > 100
-						|| first++ < 5);
+	if (y != oldBal && !isNaN(y)) {
+		balanceData[0].data.push([x,y]);
+		plot.setData(balanceData);
+		plot.setupGrid();
+		plot.draw();
 	}
 	oldBal = y;
 
@@ -124,20 +156,53 @@ function martingale() {
 
 		if (curr_bal > bal.data('oldVal')) {
 			updateProfitPer();
-			$("#pct_bet").val(parseFloat(start_bet).toFixed(8));
 			lastWin = new Date().getTime();
-
 			current_steps = 1;
 
-			// Increase the steps
+			winsBeforeLosses++;
+			if(winLossRatioMA == 0){
+				winLossRatioMA += winsBeforeLosses;
+			}else{
+				winLossRatioMA += winsBeforeLosses;
+				winLossRatioMA /=2;
+			}
+			lossesBeforeWins = 0;
+			varianceMA++;
+			varianceData[0].data.push([new Date().getTime(), winsBeforeLosses]);
+			varianceData[1].data.push([new Date().getTime(), lossesBeforeWins]);
+			varianceData[2].data.push([new Date().getTime(), varianceMA]);
+			varianceData[3].data.push([new Date().getTime(), winLossRatioMA]);
+			variancePlot.setData(varianceData);
+			variancePlot.setupGrid();
+			variancePlot.draw();
+			
+			$("#pct_bet").val((parseFloat(start_bet)).toFixed(8));
+			
 			$("#a_hi").trigger('click');
 		}
 
 		else if ($.isNumeric($("#multiplier").val())
 				&& $.isNumeric($("#steps").val())
-				&& (current_steps < $("#steps").val())) {
+				&& (current_steps <= $("#steps").val())) {
 			setTimeout(updateUI, 1);
 
+			lossesBeforeWins++;
+			if(winLossRatioMA == 0){
+				winLossRatioMA += lossesBeforeWins;
+			}else{
+				winLossRatioMA += lossesBeforeWins;
+				winLossRatioMA /=2;
+			}
+			winsBeforeLosses = 0;
+			varianceMA--;
+			varianceData[0].data.push([new Date().getTime(), winsBeforeLosses]);
+			varianceData[1].data.push([new Date().getTime(), lossesBeforeWins]);
+			varianceData[2].data.push([new Date().getTime(), varianceMA]);
+			varianceData[3].data.push([new Date().getTime(), winLossRatioMA]);
+			variancePlot.setData(varianceData);
+			variancePlot.setupGrid();
+			variancePlot.draw();
+			
 			// Increase our bet by the multiplier
 			var new_val = ($("#pct_bet").val() * $("#multiplier").val())
 					.toFixed(8);
@@ -168,7 +233,7 @@ function martingale() {
 
 // Added Extra tab from Grays Bot. This is currently just a placeholder.
 function tabber() {
-	var markup = '<div class="bot-stats"><div class="statspanel"><h2>Stats</h2></div><div class="clear"></div><div id="container" style="height: 400px; min-width:916px; margin: 0 auto"></div></div>';
+	var markup = '<div class="bot-stats"><div class="statspanel"><h2>Stats</h2></div><div class="clear"></div><div id="container" style="height: 400px; width:916px; margin: 0 auto"></div><div id="variancePlot" style="height: 400px; width:916px; margin: 0 auto"></div></div>';
 	$panelWrapper = $('<div>').attr('id', 'Nixsy9').css({
 		display : 'none'
 	}).insertAfter('#faq'), $panel = $('<div>').addClass('panel')
@@ -263,7 +328,7 @@ function create_ui() {
 		running = true;
 		start_bet = $("#startingBet").val();
 		setSetting("startingBet", start_bet);
-		$("pct_bet").val(start_bet);
+		$("#pct_bet").val(start_bet);
 		$("#a_hi").trigger('click');
 	});
 	$run_div.append($run);
@@ -450,61 +515,31 @@ function set_run() {
 		}
 }
 
-var oldBal = 0;
-
 function chart() {
-	Highcharts.setOptions({
-		global : {
-			useUTC : false
+	plot = $.plot("#container", balanceData, {
+		series: {
+			shadowSize: 0	// Drawing is faster without shadows
+		},
+		xaxis: {
+			mode: "time" 
+		},
+		yaxis:{
+			
 		}
 	});
 
-	var chart;
-	$('#container').highcharts(
-			{
-				title : {
-					text : 'Balance'
-				},
-				xAxis : {
-					type : 'datetime',
-					tickPixelInterval : 150
-				},
-				yAxis : {
-					title : {
-						text : 'Value'
-					},
-					plotLines : [ {
-						value : 0,
-						width : 1,
-						color : '#808080'
-					} ]
-				},
-				tooltip : {
-					formatter : function() {
-						return '<b>'
-								+ this.series.name
-								+ '</b><br/>'
-								+ Highcharts.dateFormat('%Y-%m-%d %H:%M:%S',
-										this.x) + '<br/>'
-								+ Highcharts.numberFormat(this.y, 2);
-					}
-				},
-				legend : {
-					enabled : false
-				},
-				exporting : {
-					enabled : false
-				},
-				series : [ {
-					name : 'Balance',
-					data : (function() {
-						// generate an array of random data
-						var data = [], time = (new Date()).getTime(), i;
+	variancePlot = $.plot("#variancePlot", varianceData, {
+		series: {
+			shadowSize: 0	// Drawing is faster without shadows
+		},
+		xaxis: {
+			mode: "time" 
+		},
+		yaxis:{
+			
+		}
+	});
 
-						return data;
-					})()
-				} ]
-			});
 
 }
 
@@ -536,11 +571,11 @@ $(document).ready(function() {
 	create_ui();
 
 	ping_user();
+	setTimeout(chart, 1);
 
 	// drawchart();
 	setInterval(cacheUSD, 60000);
 	//setInterval(updateProfitPer, 10000);
-	chart();
 
 	// set the balance
 	// when the balance changes and we're martingaling
