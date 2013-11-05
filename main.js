@@ -4,57 +4,69 @@ var bet;
 var current_steps = 1;
 var start_bet = 0.00001;
 var $run;
-var running = false; // Start of graph toggle function
+var running = false;
 var graphRunning = false;
 var arr_ignore = new Array();
 var oldBal = 0;
+var losses = 0;
+var lastWin = new Date().getTime() - 10000;
+var first = 0;
+var usdCache = 0;
+var usdCacheAge = 0;
 
 var plot;
 var variancePlot;
-var balanceData = [{
-	data: [],
-	lines: { show: true },
-    points: { show: true }
-}];
-var varianceData = [{
-	data: [],
-	lines: { show: true },
-    points: { show: true }
-},{
-	data: [],
-	lines: { show: true },
-    points: { show: true }
-},{
-	data: [],
-	lines: { show: true },
-    points: { show: true }
-},{
-	data: [],
-	lines: { show: true },
-    points: { show: true }
-}]
+var balanceData = [ {
+	data : [],
+	lines : {
+		show : true
+	},
+	points : {
+		show : true
+	}
+} ];
+var varianceData = [ {
+	data : [],
+	lines : {
+		show : true
+	},
+	points : {
+		show : true
+	}
+}, {
+	data : [],
+	lines : {
+		show : true
+	},
+	points : {
+		show : true
+	}
+}, {
+	data : [],
+	lines : {
+		show : true
+	},
+	points : {
+		show : true
+	}
+}, {
+	data : [],
+	lines : {
+		show : true
+	},
+	points : {
+		show : true
+	}
+} ]
 var winsBeforeLosses = 0;
 var lossesBeforeWins = 0;
-var varianceMA = 0;
+var varianceRatio = 0;
 var winLossRatioMA = 0;
-
 
 var timer_num = function() {
 	return parseInt(50);
 };
-var current_bet_num = 0;
 
-// Extra buttons found on pastebin http://pastebin.com/n8X8uRAT Originally from
-// a user called "v" and edited by another unknown user.
-
-$('.button_inner_group:nth(2)')
-		.append(
-				'<button onClick=\'javascript:socket.emit("invest_box", csrf); socket.emit("invest", csrf, "all", $("#invest_code").val());\'>invest all<div class="key">J</div></button>')
-		.append(
-				'<button onClick=\'javascript:socket.emit("invest_box", csrf); socket.emit("divest", csrf, "all", $("#divest_code").val());\'>divest all<div class="key">K</div></button>');
-
-var usdCache = 0;
-var usdCacheAge = 0;
 function cacheUSD() {
 	if (usdCacheAge < new Date().getTime() - 60000) {
 		$.ajax("https://api.bitcoinaverage.com/all", {
@@ -120,105 +132,118 @@ function updateUI() {
 	updateUSD();
 }
 
-var losses = 0;
-var lastWin = new Date().getTime() - 10000;
-var first = 0;
-function martingale() {
+function updateWinCount() {
+	winsBeforeLosses++;
+	if (winLossRatioMA == 0) {
+		winLossRatioMA += winsBeforeLosses;
+	} else {
+		winLossRatioMA += winsBeforeLosses;
+		winLossRatioMA /= 2;
+	}
+	lossesBeforeWins = 0;
+	varianceRatio++;
+	varianceData[0].data.push([ new Date().getTime(), winsBeforeLosses ]);
+	varianceData[1].data.push([ new Date().getTime(), lossesBeforeWins ]);
+	varianceData[2].data.push([ new Date().getTime(), varianceRatio ]);
+	varianceData[3].data.push([ new Date().getTime(), winLossRatioMA ]);
+	if (varianceData[0].data.length > 200) {
+		varianceData[0].data.splice(0, 1);
+		varianceData[1].data.splice(0, 1);
+		varianceData[2].data.splice(0, 1);
+		varianceData[3].data.splice(0, 1);
+	}
+	variancePlot.setData(varianceData);
+	variancePlot.setupGrid();
+	variancePlot.draw();
+}
+
+function updateLossCount() {
+	lossesBeforeWins++;
+	if (winLossRatioMA == 0) {
+		winLossRatioMA += lossesBeforeWins;
+	} else {
+		winLossRatioMA += lossesBeforeWins;
+		winLossRatioMA /= 2;
+	}
+	winsBeforeLosses = 0;
+	varianceRatio--;
+	varianceData[0].data.push([ new Date().getTime(), winsBeforeLosses ]);
+	varianceData[1].data.push([ new Date().getTime(), lossesBeforeWins ]);
+	varianceData[2].data.push([ new Date().getTime(), varianceRatio ]);
+	varianceData[3].data.push([ new Date().getTime(), winLossRatioMA ]);
+	if (varianceData[0].data.length > 200) {
+		varianceData[0].data.splice(0, 1);
+		varianceData[1].data.splice(0, 1);
+		varianceData[2].data.splice(0, 1);
+		varianceData[3].data.splice(0, 1);
+	}
+
+	variancePlot.setData(varianceData);
+	variancePlot.setupGrid();
+	variancePlot.draw();
+}
+
+function updateBalanceChart() {
 	var x = (new Date()).getTime(), y = parseFloat($("#pct_balance").val());
 	if (y != oldBal && !isNaN(y)) {
-		balanceData[0].data.push([x,y]);
-		if(balanceData[0].data.length > 200){
-			balanceData[0].data.splice(0,1);
+		balanceData[0].data.push([ x, y ]);
+		if (balanceData[0].data.length > 200) {
+			balanceData[0].data.splice(0, 1);
 		}
 		plot.setData(balanceData);
 		plot.setupGrid();
 		plot.draw();
 	}
 	oldBal = y;
+}
 
-	// var winning = false;
-	/* Stats */
-	this.stats = {
-		won : 0,
-		lost : 0,
-		maxStreak : 0,
-		currentProfit : 0,
-		wagered : 0
+function updateBalanceChart() {
+	var x = (new Date()).getTime(), y = parseFloat($("#pct_balance").val());
+	if (y != oldBal && !isNaN(y)) {
+		balanceData[0].data.push([ x, y ]);
+		if (balanceData[0].data.length > 200) {
+			balanceData[0].data.splice(0, 1);
+		}
+		plot.setData(balanceData);
+		plot.setupGrid();
+		plot.draw();
 	}
+	oldBal = y;
+}
 
+function resetLastWin() {
+	lastWin = new Date().getTime();
+}
+function stuckRefresh() {
 	if (running && lastWin < new Date().getTime() - 60000) {
 		window.location = window.location;
-		lastWin = new Date().getTime();
+		resetLastWin();
 	}
+}
+
+function martingale() {
 
 	if (bal.data('oldVal') != bal.val() && running) {
 		clearInterval(timer);
-		setTimeout(updateUI, 1);
-
+		updateUSD();
 		var curr_bal = bal.val();
-
 		if (curr_bal > bal.data('oldVal')) {
+			set_run();
 			updateProfitPer();
-			lastWin = new Date().getTime();
+			updateWinCount();
+			resetLastWin();
 			current_steps = 1;
-
-			winsBeforeLosses++;
-			if(winLossRatioMA == 0){
-				winLossRatioMA += winsBeforeLosses;
-			}else{
-				winLossRatioMA += winsBeforeLosses;
-				winLossRatioMA /=2;
-			}
-			lossesBeforeWins = 0;
-			varianceMA++;
-			varianceData[0].data.push([new Date().getTime(), winsBeforeLosses]);
-			varianceData[1].data.push([new Date().getTime(), lossesBeforeWins]);
-			varianceData[2].data.push([new Date().getTime(), varianceMA]);
-			varianceData[3].data.push([new Date().getTime(), winLossRatioMA]);
-			if(varianceData[0].data.length > 200){
-				varianceData[0].data.splice(0,1);
-				varianceData[1].data.splice(0,1);
-				varianceData[2].data.splice(0,1);
-				varianceData[3].data.splice(0,1);
-			}
-			variancePlot.setData(varianceData);
-			variancePlot.setupGrid();
-			variancePlot.draw();
-			
 			$("#pct_bet").val((parseFloat(start_bet)).toFixed(8));
-			
 			$("#a_hi").trigger('click');
 		}
 
 		else if ($.isNumeric($("#multiplier").val())
 				&& $.isNumeric($("#steps").val())
 				&& (current_steps <= $("#steps").val())) {
-			setTimeout(updateUI, 1);
+			
 
-			lossesBeforeWins++;
-			if(winLossRatioMA == 0){
-				winLossRatioMA += lossesBeforeWins;
-			}else{
-				winLossRatioMA += lossesBeforeWins;
-				winLossRatioMA /=2;
-			}
-			winsBeforeLosses = 0;
-			varianceMA--;
-			varianceData[0].data.push([new Date().getTime(), winsBeforeLosses]);
-			varianceData[1].data.push([new Date().getTime(), lossesBeforeWins]);
-			varianceData[2].data.push([new Date().getTime(), varianceMA]);
-			varianceData[3].data.push([new Date().getTime(), winLossRatioMA]);
-			if(varianceData[0].data.length > 200){
-				varianceData[0].data.splice(0,1);
-				varianceData[1].data.splice(0,1);
-				varianceData[2].data.splice(0,1);
-				varianceData[3].data.splice(0,1);
-			}
-			
-			variancePlot.setData(varianceData);
-			variancePlot.setupGrid();
-			variancePlot.draw();
-			
+			updateLossCount();
+
 			// Increase our bet by the multiplier
 			var new_val = ($("#pct_bet").val() * $("#multiplier").val())
 					.toFixed(8);
@@ -285,7 +310,7 @@ function ping_user() {
 					// if this is the first time we'll look at every line,
 					// otherwise we'll just do the last (which is arr.length -
 					// 2)
-					for ( var line_count = depth; line_count < arr.length - 1; line_count++) {
+					for (var line_count = depth; line_count < arr.length - 1; line_count++) {
 
 						var line = arr[line_count];
 						if (typeof line !== 'undefined') {
@@ -328,12 +353,16 @@ function ping_user() {
 
 function create_ui() {
 
+	$('.button_inner_group:nth(2)')
+			.append('<button onClick=\'javascript:socket.emit("invest_box", csrf); socket.emit("invest", csrf, "all", $("#invest_code").val());\'>invest all<div class="key">J</div></button>')
+			.append('<button onClick=\'javascript:socket.emit("invest_box", csrf); socket.emit("divest", csrf, "all", $("#divest_code").val());\'>divest all<div class="key">K</div></button>');
+
 	var $container = $('<div class="container"/>');
 	var $button_group = $('<div class="button_group"/>');
 	$container.append($button_group);
 	$button_group2 = $('<div class="button_group" style="margin:18px; margin-left:-18px;"/>');
 	$container.append($button_group2);
-	
+
 	var $martingale_button = $('<button class="button_label chance_toggle" style="margin-top:4px;height:113px;">Bot</button>');
 
 	var $run_div = $('<div class="button_inner_group" />');
@@ -418,21 +447,21 @@ function create_ui() {
 	$row4.append($label4);
 	$row4.append($delay);
 	$row4.append($numz);
-	
+
 	var $row5 = $('<div class="row"/>');
 	var $label5 = $('<p class="llabel">Auto-Start Bot</p>');
 	var autostart = $('<input id="autostart" class="readonly" style="color:red; cursor:pointer;" value = "DISABLED"/>');
 	var end = $('<p class="rlabel">&nbsp;</p>');
 	autostart.click(function() {
-		if($("#autostart").val() == "ENABLED"){
+		if ($("#autostart").val() == "ENABLED") {
 			$("#autostart").val("DISABLED").css("color", "red");
-		}else{
+		} else {
 			$("#autostart").val("ENABLED").css("color", "green");
 		}
 		setSetting("autostart", $("#autostart").val());
 	});
-	getSetting("autostart", function(a){
-		if(a == "ENABLED"){
+	getSetting("autostart", function(a) {
+		if (a == "ENABLED") {
 			$("#autostart").val(a).css("color", "green");
 			running = true;
 		}
@@ -453,14 +482,16 @@ function create_ui() {
 	$button_group.append($martingale_button);
 	$button_group.append($fieldset);
 	$button_group.append($fieldset2);
-	$button_group.append("<div style='color:white; font-size:8pt;'>Like the bot? Send a tip to Sapphire here: 1Eyd47ZFc3AbRNBMaXRiJBStKvNka9ASwE</div>");
+	$button_group
+			.append("<div style='color:white; font-size:8pt;'>Like the bot? Send a tip to Sapphire here: 1Eyd47ZFc3AbRNBMaXRiJBStKvNka9ASwE</div>");
 
 	$button_group2.append($run_div);
-	
-	
+
 	$(".container").eq('1').append($container);
 	$(".container").eq('1').append('<div style="clear:left;"/>');
-	$.ajax("https://api.bitcoinaverage.com/all",
+	$
+			.ajax(
+					"https://api.bitcoinaverage.com/all",
 					{
 						success : function(data) {
 							// usdCache =
@@ -486,6 +517,28 @@ function create_ui() {
 					});
 
 	$(".balance").append('<br><input id="pct_balanceUSD" class="readonly" tabindex="-1">');
+	
+	plot = $.plot("#container", balanceData, {
+		series : {
+			shadowSize : 0
+		},
+		xaxis : {
+			mode : "time"
+		},
+		yaxis : {
+		}
+	});
+
+	variancePlot = $.plot("#variancePlot", varianceData, {
+		series : {
+			shadowSize : 0
+		},
+		xaxis : {
+			mode : "time"
+		},
+		yaxis : {
+		}
+	});
 }
 
 function set_run() {
@@ -520,10 +573,9 @@ function set_run() {
 				// console.log("setting class invalid");
 				$run.addClass('invalid');
 				running = false;
-				
+
 			}
-		}
-		else {
+		} else {
 			// console.log("setting class invalid");
 			$run.addClass('invalid');
 			running = false;
@@ -531,33 +583,7 @@ function set_run() {
 		}
 }
 
-function chart() {
-	plot = $.plot("#container", balanceData, {
-		series: {
-			shadowSize: 0	// Drawing is faster without shadows
-		},
-		xaxis: {
-			mode: "time" 
-		},
-		yaxis:{
-			
-		}
-	});
 
-	variancePlot = $.plot("#variancePlot", varianceData, {
-		series: {
-			shadowSize: 0	// Drawing is faster without shadows
-		},
-		xaxis: {
-			mode: "time" 
-		},
-		yaxis:{
-			
-		}
-	});
-
-
-}
 
 function getSetting(key, callback) {
 	chrome.storage.sync.get(key, function(settingsSync) {
@@ -587,11 +613,11 @@ $(document).ready(function() {
 	create_ui();
 
 	ping_user();
-	setTimeout(chart, 1);
 
 	// drawchart();
 	setInterval(cacheUSD, 60000);
-	//setInterval(updateProfitPer, 10000);
+	setInterval(stuckRefresh, 10000);
+	// setInterval(updateProfitPer, 10000);
 
 	// set the balance
 	// when the balance changes and we're martingaling
@@ -609,8 +635,6 @@ $(document).ready(function() {
 	bet.data('oldVal', bet.val());
 
 	// set our array list
-	
-	
 
 	$(document).keydown(function(e) {
 		var ctrlDown = false;
