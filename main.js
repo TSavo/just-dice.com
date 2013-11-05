@@ -13,26 +13,31 @@ var lastWin = new Date().getTime() - 10000;
 var first = 0;
 var usdCache = 0;
 var usdCacheAge = 0;
+var lastVarianceWrite = new Date().getTime();
+var lastBalanceWrite = new Date().getTime();
 
 var plot;
 var variancePlot;
-var balanceData = [ {
+var defaultBalanceData = [ {
 	data : [],
 	lines : {
 		show : true
 	},
 	points : {
 		show : true
-	}
+	},
+	label:"Balance"
 } ];
-var varianceData = [ {
+var balanceData = defaultBalanceData;
+var defaultVarianceData = [ {
 	data : [],
 	lines : {
 		show : true
 	},
 	points : {
 		show : true
-	}
+	},
+	label:"Consecutive Wins"
 }, {
 	data : [],
 	lines : {
@@ -40,7 +45,8 @@ var varianceData = [ {
 	},
 	points : {
 		show : true
-	}
+	},
+	label:"Consecutive Losses"
 }, {
 	data : [],
 	lines : {
@@ -48,7 +54,9 @@ var varianceData = [ {
 	},
 	points : {
 		show : true
-	}
+	},
+	label:"Win:Loss Ratio"
+
 }, {
 	data : [],
 	lines : {
@@ -56,8 +64,10 @@ var varianceData = [ {
 	},
 	points : {
 		show : true
-	}
+	},
+	label:"Consecutive Win/Loss EMA"
 } ]
+var varianceData = defaultVarianceData;
 var winsBeforeLosses = 0;
 var lossesBeforeWins = 0;
 var varianceRatio = 0;
@@ -155,6 +165,10 @@ function updateWinCount() {
 	variancePlot.setData(varianceData);
 	variancePlot.setupGrid();
 	variancePlot.draw();
+	if(new Date().getTime() > lastVarianceWrite + 70000 + (Math.random() * 10000)){
+		lastVarianceWrite = new Date().getTime();
+		setSetting("varianceData", varianceData);
+	}
 }
 
 function updateLossCount() {
@@ -181,6 +195,10 @@ function updateLossCount() {
 	variancePlot.setData(varianceData);
 	variancePlot.setupGrid();
 	variancePlot.draw();
+	if(new Date().getTime() > lastVarianceWrite + 50000 + (Math.random() * 10000)){
+		lastVarianceWrite = new Date().getTime();
+		setSetting("varianceData", varianceData);
+	}
 }
 
 function updateBalanceChart() {
@@ -195,20 +213,10 @@ function updateBalanceChart() {
 		plot.draw();
 	}
 	oldBal = y;
-}
-
-function updateBalanceChart() {
-	var x = (new Date()).getTime(), y = parseFloat($("#pct_balance").val());
-	if (y != oldBal && !isNaN(y)) {
-		balanceData[0].data.push([ x, y ]);
-		if (balanceData[0].data.length > 200) {
-			balanceData[0].data.splice(0, 1);
-		}
-		plot.setData(balanceData);
-		plot.setupGrid();
-		plot.draw();
+	if(new Date().getTime() > lastBalanceWrite + 60000 + (Math.random() * 10000)){
+		lastBalanceWrite = new Date().getTime();
+		setSetting("balanceData", balanceData);
 	}
-	oldBal = y;
 }
 
 function resetLastWin() {
@@ -223,6 +231,9 @@ function stuckRefresh() {
 
 function martingale() {
 
+	if(bal.data('oldVal') != bal.val()){
+		updateBalanceChart();
+	}
 	if (bal.data('oldVal') != bal.val() && running) {
 		clearInterval(timer);
 		updateUSD();
@@ -274,7 +285,7 @@ function martingale() {
 
 // Added Extra tab from Grays Bot. This is currently just a placeholder.
 function tabber() {
-	var markup = '<div class="bot-stats"><div class="statspanel"><h2>Stats</h2></div><div class="clear"></div><div id="container" style="height: 400px; width:916px; margin: 0 auto"></div><div id="variancePlot" style="height: 400px; width:916px; margin: 0 auto"></div></div>';
+	var markup = '<div class="bot-stats"><div class="statspanel"><h2>Stats</h2><button id="resetChart">Reset Chart</button></div><div class="clear"></div><div id="container" style="height: 400px; width:916px; margin: 0 auto"></div><div id="variancePlot" style="height: 400px; width:916px; margin: 0 auto"></div></div>';
 	$panelWrapper = $('<div>').attr('id', 'Nixsy9').css({
 		display : 'none'
 	}).insertAfter('#faq'), $panel = $('<div>').addClass('panel')
@@ -284,6 +295,10 @@ function tabber() {
 
 	$('<li>').append($('<a>').text('Charts').attr('href', '#Nixsy9')).appendTo(
 			'.tabs');
+	$("#resetChart").click(function(){
+		varianceData = defaultVarianceData;
+		balanceData = defaultBalanceData;
+	});
 };
 
 function ping_user() {
@@ -374,6 +389,7 @@ function create_ui() {
 		start_bet = $("#startingBet").val();
 		setSetting("startingBet", start_bet);
 		$("#pct_bet").val(start_bet);
+		bal.data('oldVal', bal.val());
 		$("#a_hi").trigger('click');
 	});
 	$run_div.append($run);
@@ -605,6 +621,13 @@ function setSetting(key, value) {
 //
 $(document).ready(function() {
 
+	getSetting("balanceData", function(data){
+		balanceData = data;
+	});
+	getSetting("varianceData", function(data){
+		varianceData = data;
+	});
+
 	tabber();
 
 	console.log('starting');
@@ -619,9 +642,6 @@ $(document).ready(function() {
 	setInterval(stuckRefresh, 10000);
 	// setInterval(updateProfitPer, 10000);
 
-	// set the balance
-	// when the balance changes and we're martingaling
-	// we'll do our stuff
 	bal = $("#pct_balance");
 	bal.data('oldVal', bal.val());
 	lastBal = bal.val();
