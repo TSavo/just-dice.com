@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "name": "Just-dice.com Enhancement Suite",
   "description": "Provides various enhancements for just-dice.com including a Martingale betting strategy.",
-  "version": "1.6",
+  "version": "1.7",
 
   "permissions": [
     "tabs","https://just-dice.com/*","storage"
