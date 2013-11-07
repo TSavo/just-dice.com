@@ -1,5 +1,3 @@
-var timer;
-var bet;
 var current_steps = 1;
 var $run;
 var running = false;
@@ -552,6 +550,7 @@ function create_ui() {
 			$("#autostart").val("ENABLED").css("color", "green");
 		}
 		setSetting("autostart", $("#autostart").val());
+		set_run();
 	});
 	getSetting("autostart", function(a) {
 		if (a == "ENABLED") {
@@ -669,8 +668,6 @@ function getSetting(key, callback) {
 	chrome.storage.local.get(key, function(settingsSync) {
 		if (settingsSync[key] != undefined) {
 			callback(settingsSync[key]);
-		} else {
-			return null;
 		}
 	});
 }
@@ -680,9 +677,8 @@ function setSetting(key, value) {
 		chrome.storage.local.set(val);
 	});
 }
-//
-// The main stuff
-//
+
+
 $(document).ready(function() {
 
 	getSetting("balanceData", function(data) {
@@ -702,16 +698,11 @@ $(document).ready(function() {
 	setInterval(cacheUSD, 60000);
 	setInterval(stuckRefresh, 10000);
 	setInterval(updateUI, 50);
-	// setInterval(updateProfitPer, 10000);
 	set_run();
-	timer = setInterval(martingale, 50);
+	setInterval(martingale, 50);
 
-	// we also monitor the bet b/c it can also determine if
-	// we have enough btc to bet the martingale run
-	bet = $("#pct_bet");
-	bet.data('oldVal', bet.val());
 
-	// set our array list
+
 
 	$(document).keydown(function(e) {
 		var ctrlDown = false;
@@ -730,7 +721,6 @@ $(document).ready(function() {
 		});
 
 		if (ctrlDown && (e.keyCode == qKey)) {
-			clearInterval(timer);
 			running = false;
 			current_steps = 1;
 		}
