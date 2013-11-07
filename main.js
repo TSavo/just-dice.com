@@ -1,13 +1,12 @@
 var timer;
-var bal;
 var bet;
 var current_steps = 1;
-var start_bet = 0.00001;
 var $run;
 var running = false;
 var graphRunning = false;
 var arr_ignore = new Array();
 var oldBal = 0;
+var botBal = NaN;
 var losses = 0;
 var lastWin = new Date().getTime() - 10000;
 var first = 0;
@@ -17,6 +16,18 @@ var lastVarianceWrite = new Date().getTime();
 var lastBalanceWrite = new Date().getTime();
 var lastProfitWrite = new Date().getTime();
 var uiBalance = 0;
+var standardSeries = {
+		series : {
+			shadowSize : 5
+		},
+		xaxis : {
+			mode : "time"
+		},
+		yaxis : {},
+		legend : {
+			position : "nw"
+		}
+	};
 var defaultProfitData = [ {
 	data : [],
 	lines : {
@@ -107,9 +118,7 @@ var profitPerMS = 0;
 var lastUpdate = new Date().getTime();
 var lastBal = 0;
 
-var timer_num = function() {
-	return parseInt(50);
-};
+
 
 function commaify(num) {
 	num = num + "";
@@ -305,14 +314,27 @@ function stuckRefresh() {
 
 function martingale() {
 
-	if (bal.data('oldVal') != bal.val() && running) {
-		var curr_bal = bal.val();
-		if (curr_bal > bal.data('oldVal')) {
+	if(isNaN(botBal)){
+		botBal = parseFloat($("#pct_balance").val());
+		return;
+	}
+	if ($("#multiplier") == undefined || $("#steps") == undefined) {
+		return;
+	}
+	if (!$.isNumeric($("#multiplier").val()) || !$.isNumeric($("#steps").val()) || !$.isNumeric($('#startingBet').val())) {
+		return;
+	}
+	if (parseFloat($('#startingBet').val()) > parseFloat($("#pct_balance").val())) {
+		return;
+	}
+	
+	if (botBal != parseFloat($("#pct_balance").val()) && running) {
+		var curr_bal = $("#pct_balance").val();
+		if (curr_bal > botBal) {
 			set_run();
-
 			resetLastWin();
 			current_steps = 1;
-			$("#pct_bet").val((parseFloat(start_bet)).toFixed(8));
+			$("#pct_bet").val((parseFloat($("#startingBet").val())).toFixed(8));
 			$("#a_hi").trigger('click');
 		}
 
@@ -325,7 +347,7 @@ function martingale() {
 					.toFixed(8);
 
 			$("#pct_bet").val(new_val);
-			if(parseFloat(bal.val()) < new_val){
+			if(parseFloat($("#pct_balance").val()) < new_val){
 				running = false;
 				set_run();
 			}
@@ -335,17 +357,14 @@ function martingale() {
 			$("#a_hi").trigger('click');
 		} else {
 			current_steps = 1;
-			$("#pct_bet").val(parseFloat(start_bet).toFixed(8));
+			$("#pct_bet").val(parseFloat($("#startingBet").val()).toFixed(8));
 			running = false;
 		}
 
 		// Updated stored value
-		bal.data('oldVal', bal.val());
+		botBal = parseFloat($("#pct_balance").val());
 
 	}
-
-	else
-		bal.data('oldVal', bal.val());
 
 }
 
@@ -450,13 +469,7 @@ function create_ui() {
 	$run = $('<button id="c_run" style="margin-top:3px;">Start<div class="key">R</div></button>');
 
 	$run.click(function() {
-		lastWin = new Date().getTime();
-		running = true;
-		start_bet = $("#startingBet").val();
-		setSetting("startingBet", start_bet);
-		$("#pct_bet").val(start_bet);
-		bal.data('oldVal', bal.val());
-		$("#a_hi").trigger('click');
+		botShouldStart();
 	});
 	$run_div.append($run);
 
@@ -470,14 +483,12 @@ function create_ui() {
 	var $label0 = $('<p class="llabel">Starting Bet</p>');
 	var $startingBet = $('<input id="startingBet" value="0.00001"/>');
 	$startingBet.keyup(function() {
-		start_bet = $startingBet.val();
-		setSetting("startingBet", start_bet);
+		setSetting("startingBet", parseFloat($("#startingBet").val()).toFixed(8));
 		set_run();
 	});
 	getSetting("startingBet", function(startingBet) {
-		$("#pct_bet").val(startingBet);
-		$("#startingBet").val(startingBet);
-		start_bet = startingBet;
+		$("#pct_bet").val(parseFloat(startingBet).toFixed(8));
+		$("#startingBet").val(parseFloat(startingBet).toFixed(8));
 	});
 	var $x = $('<p class="rlabel">BTC</p>');
 	$row0.append($label0);
@@ -545,7 +556,7 @@ function create_ui() {
 	getSetting("autostart", function(a) {
 		if (a == "ENABLED") {
 			$("#autostart").val(a).css("color", "green");
-			running = true;
+			setTimeout(botShouldStart,1);
 		}
 	});
 	$row5.append($label5);
@@ -599,43 +610,26 @@ function create_ui() {
 	$(".balance").append(
 			'<br><input id="pct_balanceUSD" class="readonly" tabindex="-1">');
 
-	balanceChart = $.plot("#balanceChart", balanceData, {
-		series : {
-			shadowSize : 5
-		},
-		xaxis : {
-			mode : "time"
-		},
-		yaxis : {},
-		legend : {
-			position : "nw"
-		}
-	});
+	balanceChart = $.plot("#balanceChart", balanceData, standardSeries);
+	varianceChart = $.plot("#varianceChart", varianceData, standardSeries);
+	profitChart = $.plot("#profitChart", profitData, standardSeries);
+}
 
-	varianceChart = $.plot("#varianceChart", varianceData, {
-		series : {
-			shadowSize : 5
-		},
-		xaxis : {
-			mode : "time"
-		},
-		yaxis : {},
-		legend : {
-			position : "nw"
-		}
-	});
-	profitChart = $.plot("#profitChart", profitData, {
-		series : {
-			shadowSize : 5
-		},
-		xaxis : {
-			mode : "time"
-		},
-		yaxis : {},
-		legend : {
-			position : "nw"
-		}
-	});
+function botShouldStart(){
+	if(!$.isNumeric($("#pct_balance").val())){
+		setTimeout(botShouldStart, 500);
+		return;
+	}
+	startBot();
+}
+
+function startBot(){
+	lastWin = new Date().getTime();
+	running = true;
+	setSetting("startingBet", $("#startingBet").val());
+	$("#pct_bet").val($("#startingBet").val());
+	botBal = $("#pct_balance").val();
+	$("#a_hi").trigger('click');
 }
 
 function set_run() {
@@ -649,7 +643,7 @@ function set_run() {
 			var i;
 
 			for (i = 0; i < $("#steps").val(); i++) {
-				total += start_bet * mult;
+				total += parseFloat($("#startingBet").val()) * mult;
 				mult *= $multiplier.val();
 			}
 			$("#totalRisk").val(total.toFixed(8));
@@ -710,12 +704,7 @@ $(document).ready(function() {
 	setInterval(updateUI, 50);
 	// setInterval(updateProfitPer, 10000);
 	set_run();
-	bal = $("#pct_balance");
-	bal.data('oldVal', bal.val());
-	lastBal = bal.val();
-	timer = setInterval(function() {
-		martingale()
-	}, timer_num());
+	timer = setInterval(martingale, 50);
 
 	// we also monitor the bet b/c it can also determine if
 	// we have enough btc to bet the martingale run
@@ -729,10 +718,7 @@ $(document).ready(function() {
 		var ctrlKey = 17, qKey = 81, rKey = 82;
 
 		if (!$(document.activeElement).is('input') && (e.keyCode == rKey)) {
-			running = true;
-			start_bet = $("#startingBet").val();
-			setSetting("startingBet", start_bet);
-			$("#a_hi").trigger('click');
+			botShouldStart();
 		}
 
 		$(document).keydown(function(e) {
