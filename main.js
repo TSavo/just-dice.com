@@ -15,9 +15,31 @@ var usdCache = 0;
 var usdCacheAge = 0;
 var lastVarianceWrite = new Date().getTime();
 var lastBalanceWrite = new Date().getTime();
-
-var plot;
-var variancePlot;
+var lastProfitWrite = new Date().getTime();
+var uiBalance = 0;
+var defaultProfitData = [ {
+	data : [],
+	lines : {
+		show : true
+	},
+	points : {
+		show : true
+	},
+	label : "Profit Per Day"
+}, {
+	data : [],
+	lines : {
+		show : true
+	},
+	points : {
+		show : true
+	},
+	label : "Profit Per Day EMA"
+} ];
+var profitData = JSON.parse(JSON.stringify(defaultProfitData));
+var balanceChart;
+var varianceChart;
+var profitChart;
 var defaultBalanceData = [ {
 	data : [],
 	lines : {
@@ -26,9 +48,9 @@ var defaultBalanceData = [ {
 	points : {
 		show : true
 	},
-	label:"Balance"
+	label : "Balance"
 } ];
-var balanceData = defaultBalanceData;
+var balanceData = JSON.parse(JSON.stringify(defaultBalanceData));
 var defaultVarianceData = [ {
 	data : [],
 	lines : {
@@ -37,7 +59,7 @@ var defaultVarianceData = [ {
 	points : {
 		show : true
 	},
-	label:"Consecutive Wins"
+	label : "Consecutive Wins"
 }, {
 	data : [],
 	lines : {
@@ -46,7 +68,7 @@ var defaultVarianceData = [ {
 	points : {
 		show : true
 	},
-	label:"Consecutive Losses"
+	label : "Consecutive Losses"
 }, {
 	data : [],
 	lines : {
@@ -55,7 +77,7 @@ var defaultVarianceData = [ {
 	points : {
 		show : true
 	},
-	label:"Win:Loss Ratio"
+	label : "Win:Loss Ratio"
 
 }, {
 	data : [],
@@ -65,18 +87,42 @@ var defaultVarianceData = [ {
 	points : {
 		show : true
 	},
-	label:"Consecutive Win/Loss EMA"
+	label : "Consecutive Win/Loss EMA"
+}, {
+	data : [],
+	lines : {
+		show : true
+	},
+	points : {
+		show : false
+	},
+	label : "Max Losses"
 } ]
-var varianceData = defaultVarianceData;
+var varianceData = JSON.parse(JSON.stringify(defaultVarianceData));
 var winsBeforeLosses = 0;
 var lossesBeforeWins = 0;
 var varianceRatio = 0;
 var winLossRatioMA = 0;
+var profitPerMS = 0;
+var lastUpdate = new Date().getTime();
+var lastBal = 0;
 
 var timer_num = function() {
 	return parseInt(50);
 };
 
+function commaify(num) {
+	num = num + "";
+	var num2;
+	num = num.replace(/^([0-9]+)([0-9]{3})$/, "$1,$2");
+	while (true) {
+		num2 = num.replace(/([0-9])([0-9]{3}[,.])/, "$1,$2");
+		if (num == num2)
+			break;
+		num = num2
+	}
+	return num
+}
 function cacheUSD() {
 	if (usdCacheAge < new Date().getTime() - 60000) {
 		$.ajax("https://api.bitcoinaverage.com/all", {
@@ -88,38 +134,39 @@ function cacheUSD() {
 	}
 }
 function updateUSD() {
+	if (!$.isNumeric($("#pct_balance").val())) {
+		return;
+	}
+	if (usdCache[$("#currencySelector").val()] == undefined) {
+		return;
+	}
 	$(".investmentUSD").html(
-			(parseFloat($(".investment").html()) * usdCache[$(
+			commaify((parseFloat($(".investment").html()) * usdCache[$(
 					"#currencySelector").val()]["averages"]["24h_avg"])
-					.toFixed(2)
+					.toFixed(2))
 					+ " " + $("#currencySelector").val());
 	$(".invest_pftUSD").html(
-			(parseFloat($(".invest_pft").html()) * usdCache[$(
+			commaify((parseFloat($(".invest_pft").html()) * usdCache[$(
 					"#currencySelector").val()]["averages"]["24h_avg"])
-					.toFixed(2)
+					.toFixed(2))
 					+ " " + $("#currencySelector").val());
-	$(".myprofitUSD")
-			.html(
-					(parseFloat($(".myprofit").html()) * usdCache[$(
-							"#currencySelector").val()]["averages"]["24h_avg"])
-							.toFixed(2)
-							+ " " + $("#currencySelector").val());
+	$(".myprofitUSD").html(
+			commaify((parseFloat($(".myprofit").html()) * usdCache[$(
+					"#currencySelector").val()]["averages"]["24h_avg"])
+					.toFixed(2))
+					+ " " + $("#currencySelector").val());
 	$(".wageredUSD").html(
-			(parseFloat($(".wagered").html()) * usdCache[$("#currencySelector")
-					.val()]["averages"]["24h_avg"]).toFixed(2)
+			commaify((parseFloat($(".wagered").html()) * usdCache[$(
+					"#currencySelector").val()]["averages"]["24h_avg"])
+					.toFixed(2))
 					+ " " + $("#currencySelector").val());
-	$("#pct_balanceUSD")
-			.val(
-					($("#pct_balance").val() * usdCache[$("#currencySelector")
-							.val()]["averages"]["24h_avg"]).toFixed(2)
-							+ " " + $("#currencySelector").val());
+	$("#pct_balanceUSD").val(
+			commaify(($("#pct_balance").val() * usdCache[$("#currencySelector")
+					.val()]["averages"]["24h_avg"]).toFixed(2))
+					+ " " + $("#currencySelector").val());
 }
-var profitPerMS = 0;
-var lastUpdate = new Date().getTime();
-var lastBal = 0;
+
 function updateProfitPer() {
-	// winning = true;
-	// console.debug("winning");
 	if (!$.isNumeric($("#pct_balance").val())) {
 		return;
 	}
@@ -128,18 +175,77 @@ function updateProfitPer() {
 	var now = new Date().getTime();
 	var diff = Math.max(1, now - lastUpdate);
 	lastUpdate = now;
+	profitData[0].data.push([ now, (profit / diff) * 60000 * 1440 ]);
+	if (profitData[0].length > 100) {
+		profitData[0].splice(0, 1);
+	}
 	if (profitPerMS == 0 || isNaN(profitPerMS)) {
 		profitPerMS = profit / diff;
 	} else {
 		profitPerMS += profit / diff;
 		profitPerMS /= 2;
 	}
-	$(".profitPerS").html((profitPerMS * 1000).toFixed(8));
+	profitData[1].data.push([ now, profitPerMS * 60000 * 1440 ]);
+	if (profitData[1].length > 100) {
+		profitData[1].splice(0, 1);
+	}
 	$(".profitPerSUSD").html(((profitPerMS * 60000 * 1440)).toFixed(8));
+	profitChart.setData(profitData);
+	profitChart.setupGrid();
+	profitChart.draw();
+	if (new Date().getTime() > lastProfitWrite + 10000
+			+ (Math.random() * 10000)) {
+		lastProfitWrite = new Date().getTime();
+		setSetting("profitData", profitData);
+	}
 }
+
 function updateUI() {
+	var balance = parseFloat($("#pct_balance").val());
+	if (isNaN(balance)) {
+		return;
+	}
+	if (uiBalance == balance) {
+		return;
+	}
 	set_run();
+	updateBalanceChart();
 	updateUSD();
+	if (uiBalance == 0 && balance > 0) {
+		uiBalance = balance;
+		return;
+	}
+	if (balance > uiBalance) {
+		updateWinCount();
+		updateProfitPer()
+	} else {
+		updateLossCount();
+	}
+	uiBalance = balance;
+}
+
+function updateVarianceChart() {
+	varianceData[0].data.push([ new Date().getTime(), winsBeforeLosses ]);
+	varianceData[1].data.push([ new Date().getTime(), lossesBeforeWins ]);
+	varianceData[2].data.push([ new Date().getTime(), varianceRatio ]);
+	varianceData[3].data.push([ new Date().getTime(), winLossRatioMA ]);
+	varianceData[4].data.push([ new Date().getTime(),
+			parseInt($("#steps").val()) ])
+	if (varianceData[0].data.length > 200) {
+		varianceData[0].data.splice(0, 1);
+		varianceData[1].data.splice(0, 1);
+		varianceData[2].data.splice(0, 1);
+		varianceData[3].data.splice(0, 1);
+		varianceData[4].data.splice(0, 1);
+	}
+	varianceChart.setData(varianceData);
+	varianceChart.setupGrid();
+	varianceChart.draw();
+	if (new Date().getTime() > lastVarianceWrite + 10000
+			+ (Math.random() * 10000)) {
+		lastVarianceWrite = new Date().getTime();
+		setSetting("varianceData", varianceData);
+	}
 }
 
 function updateWinCount() {
@@ -152,23 +258,7 @@ function updateWinCount() {
 	}
 	lossesBeforeWins = 0;
 	varianceRatio++;
-	varianceData[0].data.push([ new Date().getTime(), winsBeforeLosses ]);
-	varianceData[1].data.push([ new Date().getTime(), lossesBeforeWins ]);
-	varianceData[2].data.push([ new Date().getTime(), varianceRatio ]);
-	varianceData[3].data.push([ new Date().getTime(), winLossRatioMA ]);
-	if (varianceData[0].data.length > 200) {
-		varianceData[0].data.splice(0, 1);
-		varianceData[1].data.splice(0, 1);
-		varianceData[2].data.splice(0, 1);
-		varianceData[3].data.splice(0, 1);
-	}
-	variancePlot.setData(varianceData);
-	variancePlot.setupGrid();
-	variancePlot.draw();
-	if(new Date().getTime() > lastVarianceWrite + 70000 + (Math.random() * 10000)){
-		lastVarianceWrite = new Date().getTime();
-		setSetting("varianceData", varianceData);
-	}
+	updateVarianceChart();
 }
 
 function updateLossCount() {
@@ -181,24 +271,7 @@ function updateLossCount() {
 	}
 	winsBeforeLosses = 0;
 	varianceRatio--;
-	varianceData[0].data.push([ new Date().getTime(), winsBeforeLosses ]);
-	varianceData[1].data.push([ new Date().getTime(), lossesBeforeWins ]);
-	varianceData[2].data.push([ new Date().getTime(), varianceRatio ]);
-	varianceData[3].data.push([ new Date().getTime(), winLossRatioMA ]);
-	if (varianceData[0].data.length > 200) {
-		varianceData[0].data.splice(0, 1);
-		varianceData[1].data.splice(0, 1);
-		varianceData[2].data.splice(0, 1);
-		varianceData[3].data.splice(0, 1);
-	}
-
-	variancePlot.setData(varianceData);
-	variancePlot.setupGrid();
-	variancePlot.draw();
-	if(new Date().getTime() > lastVarianceWrite + 50000 + (Math.random() * 10000)){
-		lastVarianceWrite = new Date().getTime();
-		setSetting("varianceData", varianceData);
-	}
+	updateVarianceChart();
 }
 
 function updateBalanceChart() {
@@ -208,12 +281,13 @@ function updateBalanceChart() {
 		if (balanceData[0].data.length > 200) {
 			balanceData[0].data.splice(0, 1);
 		}
-		plot.setData(balanceData);
-		plot.setupGrid();
-		plot.draw();
+		balanceChart.setData(balanceData);
+		balanceChart.setupGrid();
+		balanceChart.draw();
 	}
 	oldBal = y;
-	if(new Date().getTime() > lastBalanceWrite + 60000 + (Math.random() * 10000)){
+	if (new Date().getTime() > lastBalanceWrite + 10000
+			+ (Math.random() * 10000)) {
 		lastBalanceWrite = new Date().getTime();
 		setSetting("balanceData", balanceData);
 	}
@@ -231,17 +305,11 @@ function stuckRefresh() {
 
 function martingale() {
 
-	if(bal.data('oldVal') != bal.val()){
-		updateBalanceChart();
-	}
 	if (bal.data('oldVal') != bal.val() && running) {
-		clearInterval(timer);
-		updateUSD();
 		var curr_bal = bal.val();
 		if (curr_bal > bal.data('oldVal')) {
 			set_run();
-			updateProfitPer();
-			updateWinCount();
+
 			resetLastWin();
 			current_steps = 1;
 			$("#pct_bet").val((parseFloat(start_bet)).toFixed(8));
@@ -250,31 +318,29 @@ function martingale() {
 
 		else if ($.isNumeric($("#multiplier").val())
 				&& $.isNumeric($("#steps").val())
-				&& (current_steps <= $("#steps").val())) {
-			
-
-			updateLossCount();
+				&& (current_steps <= parseInt($("#steps").val()))) {
 
 			// Increase our bet by the multiplier
 			var new_val = ($("#pct_bet").val() * $("#multiplier").val())
 					.toFixed(8);
 
 			$("#pct_bet").val(new_val);
+			if(parseFloat(bal.val()) < new_val){
+				running = false;
+				set_run();
+			}
 
 			// Increase the steps
 			current_steps++;
 			$("#a_hi").trigger('click');
 		} else {
 			current_steps = 1;
-			$("#pct_bet").val(start_bet.toFixed(8));
+			$("#pct_bet").val(parseFloat(start_bet).toFixed(8));
 			running = false;
 		}
 
 		// Updated stored value
 		bal.data('oldVal', bal.val());
-		timer = setInterval(function() {
-			martingale()
-		}, timer_num());
 
 	}
 
@@ -282,24 +348,6 @@ function martingale() {
 		bal.data('oldVal', bal.val());
 
 }
-
-// Added Extra tab from Grays Bot. This is currently just a placeholder.
-function tabber() {
-	var markup = '<div class="bot-stats"><div class="statspanel"><h2>Stats</h2><button id="resetChart">Reset Chart</button></div><div class="clear"></div><div id="container" style="height: 400px; width:916px; margin: 0 auto"></div><div id="variancePlot" style="height: 400px; width:916px; margin: 0 auto"></div></div>';
-	$panelWrapper = $('<div>').attr('id', 'Nixsy9').css({
-		display : 'none'
-	}).insertAfter('#faq'), $panel = $('<div>').addClass('panel')
-			.append(markup).appendTo($panelWrapper),
-
-	$s_bet = $('#gbs_bet')
-
-	$('<li>').append($('<a>').text('Charts').attr('href', '#Nixsy9')).appendTo(
-			'.tabs');
-	$("#resetChart").click(function(){
-		varianceData = defaultVarianceData;
-		balanceData = defaultBalanceData;
-	});
-};
 
 function ping_user() {
 
@@ -368,9 +416,27 @@ function ping_user() {
 
 function create_ui() {
 
+	var markup = '<div class="bot-stats"><div class="statspanel"><h2>Stats</h2><button id="resetCharts">Reset Charts</button></div><div class="clear"></div><div id="balanceChart" style="height: 400px; width:916px; margin: 0 auto"></div><div id="varianceChart" style="height: 400px; width:916px; margin: 0 auto"></div><div id="profitChart" style="height: 400px; width:916px; margin: 0 auto"></div></div>';
+	$panelWrapper = $('<div>').attr('id', 'ChartPanel').css({
+		display : 'none'
+	}).insertAfter('#faq'), $panel = $('<div>').addClass('panel')
+			.append(markup).appendTo($panelWrapper),
+
+	$s_bet = $('#gbs_bet')
+
+	$('<li>').append($('<a>').text('Charts').attr('href', '#ChartPanel'))
+			.appendTo('.tabs');
+	$("#resetCharts").click(function() {
+		varianceData = JSON.parse(JSON.stringify(defaultVarianceData));
+		balanceData = JSON.parse(JSON.stringify(defaultBalanceData));
+		profitData = JSON.parse(JSON.stringify(defaultProfitData));
+	});
+
 	$('.button_inner_group:nth(2)')
-			.append('<button onClick=\'javascript:socket.emit("invest_box", csrf); socket.emit("invest", csrf, "all", $("#invest_code").val());\'>invest all<div class="key">J</div></button>')
-			.append('<button onClick=\'javascript:socket.emit("invest_box", csrf); socket.emit("divest", csrf, "all", $("#divest_code").val());\'>divest all<div class="key">K</div></button>');
+			.append(
+					'<button onClick=\'javascript:socket.emit("invest_box", csrf); socket.emit("invest", csrf, "all", $("#invest_code").val());\'>invest all<div class="key">J</div></button>')
+			.append(
+					'<button onClick=\'javascript:socket.emit("invest_box", csrf); socket.emit("divest", csrf, "all", $("#divest_code").val());\'>divest all<div class="key">K</div></button>');
 
 	var $container = $('<div class="container"/>');
 	var $button_group = $('<div class="button_group"/>');
@@ -510,8 +576,6 @@ function create_ui() {
 					"https://api.bitcoinaverage.com/all",
 					{
 						success : function(data) {
-							// usdCache =
-							// parseFloat(data.USD.averages["24h_avg"]);
 							currencyOptions = "";
 							for (i in data) {
 								if (i == "USD") {
@@ -527,48 +591,62 @@ function create_ui() {
 									.append(
 											'<tr><th><select id="currencySelector">'
 													+ currencyOptions
-													+ '</select></th><td><span class="investmentUSD"></span></td><td><span class="invest_pftUSD"></span></td><td></td><td><span class="profitPerSUSD"></span></td><td><span class="wageredUSD"></span></td><td><span class="myprofitUSD"></span></td></tr>');
+													+ '</select></th><td><span class="investmentUSD">loading...</span></td><td><span class="invest_pftUSD">loading...</span></td><td></td><td><span class="profitPerSUSD">loading...</span></td><td><span class="wageredUSD">loading...</span></td><td><span class="myprofitUSD">loading...</span></td></tr>');
 							setTimeout(updateUSD, 5000);
 						}
 					});
 
-	$(".balance").append('<br><input id="pct_balanceUSD" class="readonly" tabindex="-1">');
-	
-	plot = $.plot("#container", balanceData, {
+	$(".balance").append(
+			'<br><input id="pct_balanceUSD" class="readonly" tabindex="-1">');
+
+	balanceChart = $.plot("#balanceChart", balanceData, {
 		series : {
-			shadowSize : 0
+			shadowSize : 5
 		},
 		xaxis : {
 			mode : "time"
 		},
-		yaxis : {
+		yaxis : {},
+		legend : {
+			position : "nw"
 		}
 	});
 
-	variancePlot = $.plot("#variancePlot", varianceData, {
+	varianceChart = $.plot("#varianceChart", varianceData, {
 		series : {
-			shadowSize : 0
+			shadowSize : 5
 		},
 		xaxis : {
 			mode : "time"
 		},
-		yaxis : {
+		yaxis : {},
+		legend : {
+			position : "nw"
+		}
+	});
+	profitChart = $.plot("#profitChart", profitData, {
+		series : {
+			shadowSize : 5
+		},
+		xaxis : {
+			mode : "time"
+		},
+		yaxis : {},
+		legend : {
+			position : "nw"
 		}
 	});
 }
 
 function set_run() {
 	var $multiplier = $("#multiplier");
-	if ($multiplier !== undefined && $("#steps") !== undefined)
+	if ($multiplier !== undefined && $("#steps") !== undefined) {
 		if ($.isNumeric($multiplier.val()) && $.isNumeric($("#steps").val())
 				&& $.isNumeric($('#startingBet').val())) {
 
 			var total = 0;
 			var mult = 1;
 			var i;
-			// console.log('steps: ' + $("#steps").val() + ' multiplier:'
-			// + $multiplier.val() + ' bal: ' + $('#pct_balance').val()
-			// + ' bet:' + start_bet);
 
 			for (i = 0; i < $("#steps").val(); i++) {
 				total += start_bet * mult;
@@ -580,29 +658,21 @@ function set_run() {
 							4 * (parseFloat($("#pct_chance").val()) * 0.01),
 							parseFloat($("#steps").val()))));
 
-			// console.log('total:' + total);
-
 			if (total != 0 && total < $('#pct_balance').val()) {
-				// console.log("setting class VALID");
-				$run.removeClass('invalid');
+				$("#totalRisk").css("background-color", "#ddd")
 			} else {
-				// console.log("setting class invalid");
-				$run.addClass('invalid');
-				running = false;
-
+				$("#totalRisk").css("background-color", "red")
 			}
 		} else {
-			// console.log("setting class invalid");
-			$run.addClass('invalid');
-			running = false;
 			setTimeout(set_run, 500);
 		}
+	} else {
+		setTimeout(set_run, 500);
+	}
 }
 
-
-
 function getSetting(key, callback) {
-	chrome.storage.sync.get(key, function(settingsSync) {
+	chrome.storage.local.get(key, function(settingsSync) {
 		if (settingsSync[key] != undefined) {
 			callback(settingsSync[key]);
 		} else {
@@ -611,9 +681,9 @@ function getSetting(key, callback) {
 	});
 }
 function setSetting(key, value) {
-	chrome.storage.sync.get(null, function(val) {
+	chrome.storage.local.get(null, function(val) {
 		val[key] = value;
-		chrome.storage.sync.set(val);
+		chrome.storage.local.set(val);
 	});
 }
 //
@@ -621,27 +691,25 @@ function setSetting(key, value) {
 //
 $(document).ready(function() {
 
-	getSetting("balanceData", function(data){
+	getSetting("balanceData", function(data) {
 		balanceData = data;
 	});
-	getSetting("varianceData", function(data){
+	getSetting("varianceData", function(data) {
 		varianceData = data;
 	});
-
-	tabber();
-
-	console.log('starting');
-	cacheUSD();
+	getSetting("profitData", function(data) {
+		profitData = data;
+	});
 
 	create_ui();
 
-	ping_user();
+	cacheUSD();
 
-	// drawchart();
 	setInterval(cacheUSD, 60000);
 	setInterval(stuckRefresh, 10000);
+	setInterval(updateUI, 50);
 	// setInterval(updateProfitPer, 10000);
-
+	set_run();
 	bal = $("#pct_balance");
 	bal.data('oldVal', bal.val());
 	lastBal = bal.val();
