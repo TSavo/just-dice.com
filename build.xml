@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+
+<project default="main" basedir=".">
+
+	
+	<target name="main" >
+		<zip destfile="JDEnhancementSuite.zip">
+		    <zipfileset dir=".">
+		    	<exclude name="*.zip"/>
+		    	<exclude name=".git"/>
+		    	<exclude name=".project"/>
+		    	<exclude name="build.xml"/>
+		    </zipfileset>
+		</zip>
+	</target>
+  
+</project>

@@ -14,6 +14,9 @@ var lastVarianceWrite = new Date().getTime();
 var lastBalanceWrite = new Date().getTime();
 var lastProfitWrite = new Date().getTime();
 var uiBalance = 0;
+var timesBeforeLoss = 0;
+var rollHigh = true;
+
 var standardSeries = {
 		series : {
 			shadowSize : 5
@@ -115,6 +118,7 @@ var winLossRatioMA = 0;
 var profitPerMS = 0;
 var lastUpdate = new Date().getTime();
 var lastBal = 0;
+var highscore = 0;
 
 
 
@@ -182,29 +186,29 @@ function updateProfitPer() {
 	var now = new Date().getTime();
 	var diff = Math.max(1, now - lastUpdate);
 	lastUpdate = now;
-	profitData[0].data.push([ now, (profit / diff) * 60000 * 1440 ]);
-	if (profitData[0].length > 100) {
-		profitData[0].splice(0, 1);
-	}
+//	profitData[0].data.push([ now, (profit / diff) * 60000 * 1440 ]);
+//	if (profitData[0].length > 100) {
+//		profitData[0].splice(0, 1);
+//	}
 	if (profitPerMS == 0 || isNaN(profitPerMS)) {
 		profitPerMS = profit / diff;
 	} else {
 		profitPerMS += profit / diff;
 		profitPerMS /= 2;
 	}
-	profitData[1].data.push([ now, profitPerMS * 60000 * 1440 ]);
-	if (profitData[1].length > 100) {
-		profitData[1].splice(0, 1);
-	}
+//	profitData[1].data.push([ now, profitPerMS * 60000 * 1440 ]);
+//	if (profitData[1].length > 100) {
+//		profitData[1].splice(0, 1);
+//	}
 	$(".profitPerSUSD").html(((profitPerMS * 60000 * 1440)).toFixed(8));
-	profitChart.setData(profitData);
-	profitChart.setupGrid();
-	profitChart.draw();
-	if (new Date().getTime() > lastProfitWrite + 10000
-			+ (Math.random() * 10000)) {
-		lastProfitWrite = new Date().getTime();
-		setSetting("profitData", profitData);
-	}
+	//profitChart.setData(profitData);
+	//profitChart.setupGrid();
+	//profitChart.draw();
+//	if (new Date().getTime() > lastProfitWrite + 10000
+//			+ (Math.random() * 10000)) {
+//		lastProfitWrite = new Date().getTime();
+//		setSetting("profitData", profitData);
+//	}
 }
 
 function updateUI() {
@@ -216,7 +220,7 @@ function updateUI() {
 		return;
 	}
 	set_run();
-	updateBalanceChart();
+	//updateBalanceChart();
 	updateUSD();
 	if (uiBalance == 0 && balance > 0) {
 		uiBalance = balance;
@@ -256,6 +260,7 @@ function updateVarianceChart() {
 }
 
 function updateWinCount() {
+	timesBeforeLoss++;
 	winsBeforeLosses++;
 	if (winLossRatioMA == 0) {
 		winLossRatioMA += winsBeforeLosses;
@@ -265,10 +270,11 @@ function updateWinCount() {
 	}
 	lossesBeforeWins = 0;
 	varianceRatio++;
-	updateVarianceChart();
+	//updateVarianceChart();
 }
 
 function updateLossCount() {
+	timesBeforeLoss++;
 	lossesBeforeWins++;
 	if (winLossRatioMA == 0) {
 		winLossRatioMA += lossesBeforeWins;
@@ -278,7 +284,7 @@ function updateLossCount() {
 	}
 	winsBeforeLosses = 0;
 	varianceRatio--;
-	updateVarianceChart();
+	//updateVarianceChart();
 }
 
 function updateBalanceChart() {
@@ -310,6 +316,14 @@ function stuckRefresh() {
 	}
 }
 
+function roll(){
+	if(rollHigh){
+		$("#a_hi").trigger('click');
+	}else{
+		$("#a_hi").trigger('click');
+	}
+	rollHigh = !rollHigh;
+}
 function martingale() {
 
 	if(isNaN(botBal)){
@@ -332,38 +346,37 @@ function martingale() {
 			set_run();
 			resetLastWin();
 			current_steps = 1;
-			$("#pct_bet").val((parseFloat($("#startingBet").val())).toFixed(8));
-			$("#a_hi").trigger('click');
+			highscore = Math.max(highscore, curr_bal);
+			$("#pct_bet").val((parseFloat($("#startingBet").val()) * (curr_bal < highscore ? (highscore - curr_bal > 0.05 ? 100 : 25) : 1)).toFixed(8));
+			roll();
 		}
-
 		else if ($.isNumeric($("#multiplier").val())
 				&& $.isNumeric($("#steps").val())
-				&& (current_steps <= parseInt($("#steps").val()))) {
-
+				&& (current_steps <= parseInt($("#steps").val()) - 1)) {
 			// Increase our bet by the multiplier
-			var new_val = ($("#pct_bet").val() * $("#multiplier").val())
-					.toFixed(8);
-
+			var mult = parseFloat($("#multiplier").val());
+			//if(current_steps < 5){
+				//mult *= 2;
+			//}
+			var new_val = (parseFloat($("#pct_bet").val()) * mult).toFixed(8);
 			$("#pct_bet").val(new_val);
 			if(parseFloat($("#pct_balance").val()) < new_val){
 				running = false;
 				set_run();
 			}
-
 			// Increase the steps
 			current_steps++;
-			$("#a_hi").trigger('click');
+			roll();
 		} else {
+			timesBeforeLoss = 0;
 			current_steps = 1;
 			$("#pct_bet").val(parseFloat($("#startingBet").val()).toFixed(8));
-			running = false;
+			botShouldStart();
+			//running = false;
 		}
-
 		// Updated stored value
 		botBal = parseFloat($("#pct_balance").val());
-
 	}
-
 }
 
 function ping_user() {
@@ -431,6 +444,7 @@ function ping_user() {
 			}, 100);
 }
 
+
 function create_ui() {
 
 	var markup = '<div class="bot-stats"><div class="statspanel"><h2>Stats</h2><button id="resetCharts">Reset Charts</button></div><div class="clear"></div><div id="balanceChart" style="height: 400px; width:916px; margin: 0 auto"></div><div id="varianceChart" style="height: 400px; width:916px; margin: 0 auto"></div><div id="profitChart" style="height: 400px; width:916px; margin: 0 auto"></div></div>';
@@ -481,6 +495,10 @@ function create_ui() {
 	var $label0 = $('<p class="llabel">Starting Bet</p>');
 	var $startingBet = $('<input id="startingBet" value="0.00001"/>');
 	$startingBet.keyup(function() {
+		var st = parseFloat($("#startingBet").val()).toFixed(8);
+		if(st > 0.001){
+			$("#startingBet").val(0.001);
+		}
 		setSetting("startingBet", parseFloat($("#startingBet").val()).toFixed(8));
 		set_run();
 	});
@@ -609,9 +627,9 @@ function create_ui() {
 	$(".balance").append(
 			'<br><input id="pct_balanceUSD" class="readonly" tabindex="-1">');
 
-	balanceChart = $.plot("#balanceChart", balanceData, standardSeries);
-	varianceChart = $.plot("#varianceChart", varianceData, standardSeries);
-	profitChart = $.plot("#profitChart", profitData, standardSeries);
+	//balanceChart = $.plot("#balanceChart", balanceData, standardSeries);
+	//varianceChart = $.plot("#varianceChart", varianceData, standardSeries);
+	//profitChart = $.plot("#profitChart", profitData, standardSeries);
 }
 
 function botShouldStart(){
@@ -628,7 +646,7 @@ function startBot(){
 	setSetting("startingBet", $("#startingBet").val());
 	$("#pct_bet").val($("#startingBet").val());
 	botBal = $("#pct_balance").val();
-	$("#a_hi").trigger('click');
+	roll();
 }
 
 function set_run() {
@@ -641,9 +659,13 @@ function set_run() {
 			var mult = 1;
 			var i;
 
-			for (i = 0; i < $("#steps").val(); i++) {
+			for (i = 0; i <= $("#steps").val() - 1; i++) {
 				total += parseFloat($("#startingBet").val()) * mult;
-				mult *= $multiplier.val();
+				//if(i < 5){
+					//mult *= parseFloat($multiplier.val()) * 2;
+				//}else{
+					mult *= parseFloat($multiplier.val());
+				//}
 			}
 			$("#totalRisk").val(total.toFixed(8));
 			$("#bub").val(
@@ -699,7 +721,7 @@ $(document).ready(function() {
 	setInterval(stuckRefresh, 10000);
 	setInterval(updateUI, 50);
 	set_run();
-	setInterval(martingale, 50);
+	setInterval(martingale, 10);
 
 
 
