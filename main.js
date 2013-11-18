@@ -16,6 +16,8 @@ var lastProfitWrite = new Date().getTime();
 var uiBalance = 0;
 var timesBeforeLoss = 0;
 var rollHigh = true;
+var kicker = 0;
+var lastSave = new Date().getTime();
 
 var standardSeries = {
 		series : {
@@ -153,27 +155,27 @@ function updateUSD() {
 	}
 	$(".investmentUSD").html(
 			commaify((parseFloat($(".investment").html()) * usdCache[$(
-					"#currencySelector").val()]["averages"]["24h_avg"])
+					"#currencySelector").val()]["averages"]["last"])
 					.toFixed(2))
 					+ " " + $("#currencySelector").val());
 	$(".invest_pftUSD").html(
 			commaify((parseFloat($(".invest_pft").html()) * usdCache[$(
-					"#currencySelector").val()]["averages"]["24h_avg"])
+					"#currencySelector").val()]["averages"]["last"])
 					.toFixed(2))
 					+ " " + $("#currencySelector").val());
 	$(".myprofitUSD").html(
 			commaify((parseFloat($(".myprofit").html()) * usdCache[$(
-					"#currencySelector").val()]["averages"]["24h_avg"])
+					"#currencySelector").val()]["averages"]["last"])
 					.toFixed(2))
 					+ " " + $("#currencySelector").val());
 	$(".wageredUSD").html(
 			commaify((parseFloat($(".wagered").html()) * usdCache[$(
-					"#currencySelector").val()]["averages"]["24h_avg"])
+					"#currencySelector").val()]["averages"]["last"])
 					.toFixed(2))
 					+ " " + $("#currencySelector").val());
 	$("#pct_balanceUSD").val(
 			commaify(($("#pct_balance").val() * usdCache[$("#currencySelector")
-					.val()]["averages"]["24h_avg"]).toFixed(2))
+					.val()]["averages"]["last"]).toFixed(2))
 					+ " " + $("#currencySelector").val());
 }
 
@@ -324,6 +326,8 @@ function roll(){
 	}
 	rollHigh = !rollHigh;
 }
+
+
 function martingale() {
 
 	if(isNaN(botBal)){
@@ -341,13 +345,39 @@ function martingale() {
 	}
 	
 	if (botBal != parseFloat($("#pct_balance").val()) && running) {
-		var curr_bal = $("#pct_balance").val();
+		var curr_bal = parseFloat($("#pct_balance").val());
 		if (curr_bal > botBal) {
-			set_run();
 			resetLastWin();
 			current_steps = 1;
+			
 			highscore = Math.max(highscore, curr_bal);
-			$("#pct_bet").val((parseFloat($("#startingBet").val()) * (curr_bal < highscore ? (highscore - curr_bal > 0.05 ? 100 : 25) : 1)).toFixed(8));
+			var loss = highscore - curr_bal;
+			if(loss > 0){
+				$("#steps").val(11);
+			}else{
+				$("#steps").val(9);
+			}
+			if(loss > (curr_bal / 4)){
+				highscore = 0;
+				loss = 0;
+			}
+			//$("#startingBet").val((parseFloat($("#startingBet").val()) + ((parseFloat($("#startingBet").val()) / Math.pow(2, parseFloat($("#steps").val())))) / 2).toFixed(13));
+			var totalRisk = $("#totalRisk");
+			var startingBet = $("#startingBet");
+			
+			startingBet.val(((loss) + (curr_bal / 100000)).toFixed(8)); 
+			set_run();
+			
+			while(parseFloat(totalRisk.val()) > (curr_bal/4)){
+				startingBet.val((parseFloat(startingBet.val()) *.9).toFixed(8));
+				set_run();
+			}
+			if(new Date().getTime() - 30000 > lastSave){
+				lastSave = new Date().getTime();
+				setSetting("startingBet", startingBet.val());
+				setSetting("highscore", highscore);
+			}
+			$("#pct_bet").val(Math.min(1, parseFloat(startingBet.val())).toFixed(8));
 			roll();
 		}
 		else if ($.isNumeric($("#multiplier").val())
@@ -658,13 +688,15 @@ function set_run() {
 			var total = 0;
 			var mult = 1;
 			var i;
-
-			for (i = 0; i <= $("#steps").val() - 1; i++) {
-				total += parseFloat($("#startingBet").val()) * mult;
+			var m = parseFloat($multiplier.val());
+			var steps = parseInt($("#steps").val());
+			var startingBet = parseFloat($("#startingBet").val());
+			for (i = 0; i <= steps - 1; i++) {
+				total += startingBet * mult;
 				//if(i < 5){
 					//mult *= parseFloat($multiplier.val()) * 2;
 				//}else{
-					mult *= parseFloat($multiplier.val());
+					mult *= m;
 				//}
 			}
 			$("#totalRisk").val(total.toFixed(8));
@@ -711,6 +743,9 @@ $(document).ready(function() {
 	});
 	getSetting("profitData", function(data) {
 		profitData = data;
+	});
+	getSetting("highscore", function(data){
+		highscore = data;
 	});
 
 	create_ui();
