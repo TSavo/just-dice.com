@@ -3,7 +3,7 @@
 
   "name": "Nix's-Just-dice.com enhancement suite",
   "description": "Provides various enhancements for just-dice.com including a Martingale betting strategy.",
-  "version": "3.0.3",
+  "version": "3.0.4",
 
   "permissions": [
     "tabs","https://just-dice.com/*","storage"

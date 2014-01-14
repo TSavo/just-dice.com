@@ -32,7 +32,7 @@ var balance = 0;
 var start_values_check = 0;
 var betid = 0;
 var last_betid = 0;
-var version_c = "3.0.3";
+var version_c = "3.0.4";
 var heartbeat_bpm = 100; //this is the bots ticker if for some reason the site temp bans  for spam betting lower this to 125
 var bet_data = [];
 var arr_bets = [];
@@ -54,7 +54,8 @@ var start_bal = 0;
 var first_run = 0;
 var current_profit = 0;
 var hi_lo;
-
+var randomizer_count = 0;
+var randomizing = 0;
 
 //window.location.reload(true);
 //-------------------------------------- Heart and possibly soul of the bot. Everything is called from here.
@@ -115,6 +116,33 @@ function stop_bank() {
 	}, 100);
 }
 
+//-------------------------------------- Randomizer function.
+function randomizer() {
+	if ($('#randomizer_check').prop('checked') && randomizer_count >= 12) { 
+		randomizer_count = 0;
+		randomizing = 1;
+		$("button#a_random").click();
+		running = 0;
+		setTimeout(function() {
+	 		$("button.seed_button").click();
+	 		running = 1;
+	 		randomizing = 0; 
+		}, 1000)
+	}	
+}
+
+//-------------------------------------- Unused for now but will be used in future updates.
+function randomString(length) {
+        var chars = "0123456789";
+        var string_length = length;
+        var randomstring = '';
+        for (var i=0; i<string_length; i++) {
+                var rnum = Math.floor(Math.random() * chars.length);
+                randomstring += chars.substring(rnum,rnum+1);
+        }
+        return randomstring;
+}
+
 function reset_stats() {
 	start_balance = parseFloat($("#pct_balance").val());
 	won = 0;
@@ -157,6 +185,7 @@ function results() {
 			update_graphs();
 			play_sound1();
 			popArray();
+			randomizer_count++;
 
 		} else {
 			win1 = 0;
@@ -170,6 +199,7 @@ function results() {
 			update_graphs();
 			play_sound2();
 			popArray();
+			randomizer_count++;
 			if (first_run == 0) {
 				lose1--;
 				steps--;
@@ -303,12 +333,14 @@ function Martingale() {
 	if (running == 1) {
 		if (winning == 1 && betting == 0) {
 
+			randomizer();
 			bet_click(reset_bet);
 
 		} else if (winning == 0 && betting == 0) {
 
 			var new_bet = parseFloat($("#pct_bet").val() * $multiplierInput.val());
 
+			randomizer();
 			bet_click(new_bet);
 
 		} else {
@@ -370,14 +402,20 @@ function bet_click(bet_value) {
 
 			$("#a_hi").trigger('click');
 		}
-	} else {
-		steps = 0;
-		running = 0;
-		$("#pct_bet").val(reset_bet);
-		log_message('***limit reached***');
-		console.log('***limit reached***');
-		play_sound3();
+	} else if (randomizing == 1) {
+			console.log('Randomizing Please wait....');
+		} else {
+			bust();
 	}
+}
+
+function bust() {
+	log_message('***limit reached***');
+	console.log('***limit reached***');
+	steps = 0;
+	running = 0;
+	$("#pct_bet").val(reset_bet);
+	play_sound3();
 }
 
 //-------------------------------------- Graphing functions
@@ -469,6 +507,10 @@ function gui() { //
     $profit_stop_check = $('<div style="margin-right:10px"><font color="white"><input type="checkbox" value="1" name="profit_stop_check" id="profit_stop_check" /> stop on bank  </font></div>')
         $o_row1.append($profit_stop_check);
 
+    //randomizer_check
+    $randomizer_check = $('<div style="margin-right:10px"><font color="white"><input type="checkbox" value="1" name="randomizer_check" id="randomizer_check" /> randomize every 12  </font></div>')
+        $o_row1.append($randomizer_check);
+        
 	//-------------------------------------- builds user interface
 	$container = $('<div id="chipper" class="container"/>');
 	$container2 = $('<div id="chipper2" class="container"/>');
