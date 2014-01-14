@@ -46,7 +46,6 @@ This is a donation link to the original developer (Darby999). This script is his
 
 I would like to thanks Wilco for a his help with the chat parser, Tsavo for being a talented dev, and darby999 for the original inspiration. Thanks guys!
 
-More information About this bot can be found here http://criticalnix.github.io/just-dice.com/ and here http://bitcoinproject.net/just-dice-casino/chrome-extension
 
 Other Just-Dice projects
 ------
